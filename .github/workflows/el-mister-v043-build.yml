@@ -24,6 +24,7 @@ jobs:
           mkdir -p /tmp/elmister/base /tmp/elmister/out
           cat el-mister/build/v042/*.b64 | base64 -d > /tmp/elmister/base.apk
           echo '253b745ba5de9bfd78f3fce5620bb73b600ef4664a91554e160fdcc6b4629363  /tmp/elmister/base.apk' | sha256sum -c -
+          cp /tmp/elmister/base.apk /tmp/elmister/out/El-Mister-v0.4.2-reference.apk
           unzip -q /tmp/elmister/base.apk -d /tmp/elmister/base
       - name: Patch tactical squad and academy UI
         shell: bash
@@ -46,6 +47,7 @@ jobs:
         with:
           name: el-mister-v043-unsigned
           path: |
+            /tmp/elmister/out/El-Mister-v0.4.2-reference.apk
             /tmp/elmister/out/El-Mister-v0.4.3-unsigned.apk
             /tmp/elmister/out/index-v043.html
             /tmp/elmister/out/unsigned-sha256.txt
