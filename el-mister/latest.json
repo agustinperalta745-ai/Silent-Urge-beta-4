@@ -1,14 +1,14 @@
 {
-  "versionCode": 7,
-  "versionName": "0.4.2",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.2.apk",
+  "versionCode": 8,
+  "versionName": "0.4.3",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.3.apk",
   "mandatory": false,
   "changes": [
-    "Consecuencias importantes ahora aparecen en un cartel grande centrado",
-    "Goles, penales fallados y tiros libres muestran una resolución visual inmediata",
-    "Las lesiones graves muestran jugador y tiempo estimado de baja",
-    "Decisiones generales, mensajes y cantera muestran sus efectos antes de continuar"
+    "Plantel táctico con cancha y jugadores ubicados según la formación",
+    "Cambios manuales entre titulares y suplentes desde Plantel",
+    "El once elegido ahora se usa en los partidos",
+    "Cantera: subir al primer equipo, liberar o ver informe desde la ficha"
   ],
-  "sha256": "253b745ba5de9bfd78f3fce5620bb73b600ef4664a91554e160fdcc6b4629363",
+  "sha256": "39b5252e07535d4ac9819829ea2a319a55cc8641da8a4e8df471c65307438639",
   "migration": false
 }
