@@ -1,4 +1,4 @@
-name: Publish El Mister v0.4.1
+name: Maintain El Mister editable sources
 
 on:
   push:
@@ -16,26 +16,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: el-mister-updates
-      - name: Reassemble signed APK
+      - name: Verify packages and extract editable UI
         shell: bash
         run: |
           cat el-mister/build/v041/*.b64 | base64 -d > el-mister/El-Mister-v0.4.1.apk
           echo '2f75b930756b0c3a9a1de55c8dca6ddc99e1aaeca9705908c441d83e6669e479  el-mister/El-Mister-v0.4.1.apk' | sha256sum -c -
+          echo '253b745ba5de9bfd78f3fce5620bb73b600ef4664a91554e160fdcc6b4629363  el-mister/El-Mister-v0.4.2.apk' | sha256sum -c -
           unzip -t el-mister/El-Mister-v0.4.1.apk
-          mkdir -p el-mister/source/v041
+          unzip -t el-mister/El-Mister-v0.4.2.apk
+          mkdir -p el-mister/source/v041 el-mister/source/v042
           unzip -p el-mister/El-Mister-v0.4.1.apk assets/index.html > el-mister/source/v041/index.html
-      - name: Commit APK and editable UI source
+          unzip -p el-mister/El-Mister-v0.4.2.apk assets/index.html > el-mister/source/v042/index.html
+      - name: Commit editable UI sources
         shell: bash
         run: |
           git config user.name 'El Mister Update Bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add el-mister/El-Mister-v0.4.1.apk el-mister/source/v041/index.html
-          git diff --cached --quiet || git commit -m 'Expose El Mister v0.4.1 UI source for updates'
+          git add el-mister/source/v041/index.html el-mister/source/v042/index.html
+          git diff --cached --quiet || git commit -m 'Store editable El Mister UI sources'
           git push origin HEAD:el-mister-updates
-      - name: Upload current APK and UI source
+      - name: Upload current package and UI source
         uses: actions/upload-artifact@v4
         with:
-          name: el-mister-v041-source
+          name: el-mister-v042-source
           path: |
-            el-mister/El-Mister-v0.4.1.apk
-            el-mister/source/v041/index.html
+            el-mister/El-Mister-v0.4.2.apk
+            el-mister/source/v042/index.html
