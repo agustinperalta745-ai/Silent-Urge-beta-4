@@ -5,6 +5,7 @@ on:
     branches: [el-mister-updates]
     paths:
       - 'el-mister/patch-v043.py'
+      - 'el-mister/v043-trigger.txt'
       - '.github/workflows/el-mister-v043-build.yml'
 
 permissions:
