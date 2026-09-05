@@ -1,0 +1,66 @@
+name: Publish El Mister v0.5.0
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/v050-publish-trigger.txt'
+      - '.github/workflows/el-mister-v050-publish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Reassemble and verify signed v0.5.0
+        shell: bash
+        run: |
+          cat el-mister/build/v050/*.b64 | base64 -d > el-mister/El-Mister-v0.5.0.apk
+          echo 'e278669227f2f486573fc1f3e4844453f220e92a71f51b97c42eb87bbc656103  el-mister/El-Mister-v0.5.0.apk' | sha256sum -c -
+          unzip -t el-mister/El-Mister-v0.5.0.apk
+          jarsigner -verify el-mister/El-Mister-v0.5.0.apk
+          mkdir -p el-mister/source/v050
+          unzip -p el-mister/El-Mister-v0.5.0.apk assets/index.html > el-mister/source/v050/index.html
+          grep -q "const VERSION='0.5.0'" el-mister/source/v050/index.html
+          grep -q "const VERSION_CODE=9" el-mister/source/v050/index.html
+          grep -q "function careerStage" el-mister/source/v050/index.html
+          grep -q "function buildMatchStops" el-mister/source/v050/index.html
+          grep -q "function makeMatchScenario" el-mister/source/v050/index.html
+          grep -q "S.messages=S.messages.slice(-5)" el-mister/source/v050/index.html
+
+      - name: Write v0.5.0 update feed
+        shell: bash
+        run: |
+          cat > el-mister/latest.json <<'JSON'
+          {
+            "versionCode": 9,
+            "versionName": "0.5.0",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.5.0.apk",
+            "mandatory": false,
+            "changes": [
+              "Partidos con interrupciones dinámicas y situaciones coherentes con marcador, minuto y dominio",
+              "Opciones de partido más variadas y consecuencias visibles en cancha",
+              "Juvenil, Adulto y Veterano con personalidades, excepciones y rasgos individuales",
+              "Plantel rediseñado con nombres completos, suplentes más cómodos y canteranos 🌱",
+              "Celular del DT con menos spam, textos variados y máximo 5 mensajes",
+              "Ofertas y pedidos de titularidad ahora identifican al jugador"
+            ],
+            "sha256": "e278669227f2f486573fc1f3e4844453f220e92a71f51b97c42eb87bbc656103",
+            "migration": true
+          }
+          JSON
+
+      - name: Publish APK, editable source and updater feed
+        shell: bash
+        run: |
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.5.0.apk el-mister/source/v050/index.html el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.5.0 contextual matches and personalities'
+          git push origin HEAD:el-mister-updates
