@@ -1,12 +1,18 @@
 {
-  "versionCode": 4,
-  "versionName": "0.3.1",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.3.1.apk",
+  "versionCode": 5,
+  "versionName": "0.4",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.apk",
   "mandatory": false,
   "changes": [
-    "Corrige el conflicto de paquete de la instalación inicial",
-    "Establece la identidad definitiva de El Míster",
-    "Autoactualizador preparado para futuras versiones"
+    "Partidos con tres pausas de decisión",
+    "Penales, tiros libres y córners con elección del DT",
+    "Eventos de partido: lesiones, vestuario e incidentes de hinchada",
+    "Cantera con juveniles e informes guiados",
+    "Copa Nacional con prórroga y tandas de penales",
+    "Celular del DT con quejas, pedidos y agradecimientos",
+    "Flujo lineal basado en Próximo paso"
   ],
-  "sha256": "fbbc1f3045b64e781e5917b084854475c298a5152dcc2a4d90d96081d40a02c4"
+  "sha256": "dc345f6ece1acc70ad6d05f0676a19f3b2eaddbb3b6ff885b727a9918c037983",
+  "migration": true,
+  "migrationNote": "Esta versión instala la base estable de El Míster. Android puede mostrarla como una instalación nueva por única vez."
 }
