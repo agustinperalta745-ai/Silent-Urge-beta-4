@@ -1,12 +1,12 @@
 {
-  "versionCode": 3,
-  "versionName": "0.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.3.apk",
+  "versionCode": 4,
+  "versionName": "0.3.1",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.3.1.apk",
   "mandatory": false,
   "changes": [
-    "Autoactualizador interno activado",
-    "Mantiene la carrera guardada de la v0.2",
-    "Canal de actualizaciones preparado para próximas versiones"
+    "Corrige el conflicto de paquete de la instalación inicial",
+    "Establece la identidad definitiva de El Míster",
+    "Autoactualizador preparado para futuras versiones"
   ],
-  "sha256": "c7e4fcc672cbf5b4eebe6ccdbddd942f56ee4782fb094e5823b99a202b8a5291"
+  "sha256": "fbbc1f3045b64e781e5917b084854475c298a5152dcc2a4d90d96081d40a02c4"
 }
