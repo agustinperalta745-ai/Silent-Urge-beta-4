@@ -1,14 +1,16 @@
 {
-  "versionCode": 8,
-  "versionName": "0.4.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.3.apk",
+  "versionCode": 9,
+  "versionName": "0.5.0",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.5.0.apk",
   "mandatory": false,
   "changes": [
-    "Plantel táctico con cancha y jugadores ubicados según la formación",
-    "Cambios manuales entre titulares y suplentes desde Plantel",
-    "El once elegido ahora se usa en los partidos",
-    "Cantera: subir al primer equipo, liberar o ver informe desde la ficha"
+    "Partidos con interrupciones dinámicas y situaciones coherentes con marcador, minuto y dominio",
+    "Opciones de partido más variadas y consecuencias visibles en cancha",
+    "Juvenil, Adulto y Veterano con personalidades, excepciones y rasgos individuales",
+    "Plantel rediseñado con nombres completos, suplentes más cómodos y canteranos 🌱",
+    "Celular del DT con menos spam, textos variados y máximo 5 mensajes",
+    "Ofertas y pedidos de titularidad ahora identifican al jugador"
   ],
-  "sha256": "39b5252e07535d4ac9819829ea2a319a55cc8641da8a4e8df471c65307438639",
-  "migration": false
+  "sha256": "e278669227f2f486573fc1f3e4844453f220e92a71f51b97c42eb87bbc656103",
+  "migration": true
 }
