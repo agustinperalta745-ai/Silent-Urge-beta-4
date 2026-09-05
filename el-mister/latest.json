@@ -1,19 +1,14 @@
 {
-  "versionCode": 6,
-  "versionName": "0.4.1",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.1.apk",
+  "versionCode": 7,
+  "versionName": "0.4.2",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.4.2.apk",
   "mandatory": false,
   "changes": [
-    "Corrige el error de análisis del paquete de v0.4",
-    "Partidos con tres pausas de decisión",
-    "Penales, tiros libres y córners con elección del DT",
-    "Eventos de partido: lesiones, vestuario e incidentes de hinchada",
-    "Cantera con juveniles e informes guiados",
-    "Copa Nacional con prórroga y tandas de penales",
-    "Celular del DT con quejas, pedidos y agradecimientos",
-    "Flujo lineal basado en Próximo paso"
+    "Consecuencias importantes ahora aparecen en un cartel grande centrado",
+    "Goles, penales fallados y tiros libres muestran una resolución visual inmediata",
+    "Las lesiones graves muestran jugador y tiempo estimado de baja",
+    "Decisiones generales, mensajes y cantera muestran sus efectos antes de continuar"
   ],
-  "sha256": "2f75b930756b0c3a9a1de55c8dca6ddc99e1aaeca9705908c441d83e6669e479",
-  "migration": true,
-  "migrationNote": "Esta versión instala la base estable de El Míster. Android puede mostrarla como una instalación nueva por única vez."
+  "sha256": "253b745ba5de9bfd78f3fce5620bb73b600ef4664a91554e160fdcc6b4629363",
+  "migration": false
 }
