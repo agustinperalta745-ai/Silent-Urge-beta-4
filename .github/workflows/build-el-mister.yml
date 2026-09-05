@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - el-mister-v0.1
-    paths:
-      - 'el-mister/**'
-      - '.github/workflows/build-el-mister.yml'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
