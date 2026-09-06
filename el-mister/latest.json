@@ -1,16 +1,14 @@
 {
-  "versionCode": 9,
-  "versionName": "0.5.0",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.5.0.apk",
+  "versionCode": 13,
+  "versionName": "0.6.2",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.2.apk",
   "mandatory": false,
   "changes": [
-    "Partidos con interrupciones dinámicas y situaciones coherentes con marcador, minuto y dominio",
-    "Opciones de partido más variadas y consecuencias visibles en cancha",
-    "Juvenil, Adulto y Veterano con personalidades, excepciones y rasgos individuales",
-    "Plantel rediseñado con nombres completos, suplentes más cómodos y canteranos 🌱",
-    "Celular del DT con menos spam, textos variados y máximo 5 mensajes",
-    "Ofertas y pedidos de titularidad ahora identifican al jugador"
+    "Interrupciones de partido probabilísticas según intensidad y contexto, sin pausas rígidas",
+    "Podés abrir Cambios desde una decisión y volver a la misma situación sin perderla",
+    "Nuevos minijuegos de lectura de pase, memoria de centros y reflejos del arquero",
+    "La dificultad de los minijuegos cambia según habilidad del jugador e importancia del partido"
   ],
-  "sha256": "e278669227f2f486573fc1f3e4844453f220e92a71f51b97c42eb87bbc656103",
+  "sha256": "5523c8d70c1de7e5907afdf68b8e22a994d144ea649bc3b314718c6dfe7d9e53",
   "migration": true
 }
