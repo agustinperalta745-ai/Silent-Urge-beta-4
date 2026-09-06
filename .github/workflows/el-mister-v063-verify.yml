@@ -1,0 +1,67 @@
+name: Verify El Mister v0.6.3 match flow
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/patch-v063.py'
+      - '.github/workflows/el-mister-v063-verify.yml'
+      - 'el-mister/v063-verify-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Build v0.6.3 editable source
+        shell: bash
+        run: |
+          mkdir -p el-mister/source/v063 /tmp/elmister-v063
+          python3 el-mister/patch-v063.py el-mister/source/v062/index.html el-mister/source/v063/index.html
+          grep -q "const VERSION='0.6.3'" el-mister/source/v063/index.html
+          grep -q "const VERSION_CODE=14" el-mister/source/v063/index.html
+          grep -q "function v063AdvanceUntilDecision" el-mister/source/v063/index.html
+          grep -q '>🔄 Hacer cambio</button>' el-mister/source/v063/index.html
+          grep -q 'v061StartClock=function(){v061StopClock()}' el-mister/source/v063/index.html
+
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const s=fs.readFileSync('el-mister/source/v063/index.html','utf8');
+          const m=s.match(/<script>([\s\S]*)<\/script>/);
+          if(!m) throw new Error('script not found');
+          new Function(m[1]);
+          console.log('JavaScript syntax OK');
+          NODE
+
+      - name: Repack unsigned control APK
+        shell: bash
+        run: |
+          unzip -q el-mister/El-Mister-v0.6.2.apk -d /tmp/elmister-v063
+          cp el-mister/source/v063/index.html /tmp/elmister-v063/assets/index.html
+          rm -rf /tmp/elmister-v063/META-INF
+          (cd /tmp/elmister-v063 && zip -q -r "$GITHUB_WORKSPACE/El-Mister-v0.6.3-unsigned.apk" .)
+          unzip -t El-Mister-v0.6.3-unsigned.apk
+
+      - name: Commit verified editable source
+        shell: bash
+        run: |
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v063/index.html
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.6.3 decision-stop match flow'
+          git push origin HEAD:el-mister-updates
+
+      - name: Upload internal unsigned control build
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v063-unsigned-control
+          path: El-Mister-v0.6.3-unsigned.apk
