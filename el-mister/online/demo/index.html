@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>El Míster Online</title>
+<style>
+:root{--bg:#071018;--panel:#0e1b26;--line:#213747;--text:#f4f7f9;--muted:#8da4b3;--gold:#f3bf4d;--green:#55d693;--red:#ff6d73;--blue:#64a7ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#12283a 0,#071018 38%);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh}.app{max-width:560px;margin:auto;padding:22px 16px 40px}.brand{text-align:center;margin:8px 0 22px}.brand b{font-size:28px}.brand span{display:block;color:var(--gold);font-size:11px;font-weight:900;letter-spacing:.14em;margin-top:4px}.card{background:linear-gradient(180deg,#102230,#0b1720);border:1px solid var(--line);border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 16px 36px rgba(0,0,0,.2)}h2{font-size:19px;margin:0 0 7px}p{color:#a8bbc7;font-size:12px;line-height:1.45}.input{width:100%;border:1px solid #294555;background:#09161e;color:white;padding:13px;border-radius:13px;margin:7px 0;outline:none}.btn{width:100%;border:0;border-radius:14px;padding:14px;font-weight:900;margin-top:9px}.primary{background:linear-gradient(180deg,#f6cb66,#e8ae38);color:#111820}.secondary{background:#122432;color:white;border:1px solid #365267}.muted{color:var(--muted);font-size:11px}.hide{display:none!important}.roomCode{text-align:center;font-size:30px;letter-spacing:.18em;font-weight:1000;color:var(--gold);padding:6px 0}.score{display:flex;justify-content:center;align-items:center;gap:18px;margin:12px 0}.score b{font-size:43px}.scoreName{width:34%;text-align:center;font-size:12px;font-weight:800}.status{text-align:center;color:#b8ceda;font-size:12px;margin:5px 0 14px}.dirs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:300px;margin:12px auto}.dir{height:58px;border:1px solid #2b485a;background:#102430;color:white;border-radius:15px;font-size:22px;font-weight:900}.dir.blank{visibility:hidden}.dir.selected{border-color:var(--gold);background:rgba(243,191,77,.14)}.timing{position:relative;height:28px;border-radius:999px;background:#09131a;border:1px solid #294354;overflow:hidden;margin:16px 0}.green{position:absolute;left:44%;width:12%;top:0;bottom:0;background:rgba(85,214,147,.5)}.needle{position:absolute;top:2px;bottom:2px;width:4px;background:white;border-radius:4px;left:0}.kickLog{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#19303d;font-size:11px;font-weight:1000}.dot.goal{background:rgba(85,214,147,.2);color:#8ef0b6}.dot.saved,.dot.missed{background:rgba(255,109,115,.18);color:#ffb2b6}.notice{padding:11px;border-radius:12px;border:1px solid rgba(100,167,255,.25);background:rgba(100,167,255,.08);font-size:11px;color:#c9ddff;line-height:1.4}.dev{margin-top:20px;opacity:.7}label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+</style>
+</head>
+<body><div class="app">
+<div class="brand"><b>EL MÍSTER</b><span>ONLINE · PENALTIES ALPHA</span></div>
+
+<section id="lobby" class="card">
+<h2>⚽ Duelo de penales</h2><p>Creá una sala o entrá con el código de otro DT. Las elecciones se bloquean en secreto y el servidor resuelve cuando los dos confirmaron.</p>
+<input id="name" class="input" maxlength="30" placeholder="Tu nombre de DT">
+<button class="btn primary" onclick="createRoom()">CREAR SALA</button>
+<div style="height:12px"></div>
+<input id="code" class="input" maxlength="7" placeholder="Código de sala" style="text-transform:uppercase">
+<button class="btn secondary" onclick="joinRoom()">ENTRAR A SALA</button>
+<div id="lobbyMsg" class="muted" style="margin-top:10px"></div>
+</section>
+
+<section id="game" class="hide">
+<div class="card">
+<label>SALA</label><div id="roomCode" class="roomCode"></div>
+<div class="score"><div id="p0" class="scoreName">DT 1</div><b><span id="s0">0</span> - <span id="s1">0</span></b><div id="p1" class="scoreName">DT 2</div></div>
+<div id="status" class="status">Esperando rival…</div><div id="log" class="kickLog"></div>
+</div>
+
+<div id="playCard" class="card hide">
+<h2 id="roleTitle">Tu turno</h2><p id="roleText"></p>
+<div class="dirs">
+<button class="dir" data-d="0">↖</button><button class="dir" data-d="1">↑</button><button class="dir" data-d="2">↗</button>
+<button class="dir" data-d="3">←</button><button class="dir blank">•</button><button class="dir" data-d="4">→</button>
+<button class="dir" data-d="5">↙</button><button class="dir" data-d="6">↓</button><button class="dir" data-d="7">↘</button>
+</div>
+<div id="timingWrap" class="hide"><label>PRECISIÓN DEL REMATE</label><div class="timing"><div class="green"></div><div id="needle" class="needle"></div></div></div>
+<button id="lockBtn" class="btn primary" onclick="lockChoice()">CONFIRMAR EN SECRETO</button>
+<div id="locked" class="notice hide" style="margin-top:12px">🔒 Elección confirmada. Esperando al otro DT…</div>
+</div>
+
+<div id="finish" class="card hide"><h2 id="finishTitle">Final</h2><p id="finishText"></p><button class="btn primary" onclick="rematch()">REVANCHA</button></div>
+</section>
+
+<section class="card dev"><label>Servidor de pruebas</label><input id="api" class="input" placeholder="https://...workers.dev"><button class="btn secondary" onclick="saveApi()">GUARDAR SERVIDOR</button></section>
+</div>
+<script>
+const $=id=>document.getElementById(id);let token='',slot=null,state=null,ws=null,selected=null,needleX=0,needleDir=1,timer=null;
+const arrows=['↖','↑','↗','←','→','↙','↓','↘'];
+function api(){return ($('api').value||localStorage.getItem('elmisterOnlineApi')||'').replace(/\/$/,'')}
+$('api').value=localStorage.getItem('elmisterOnlineApi')||'';$('name').value=localStorage.getItem('elmisterDtName')||'';
+function saveApi(){localStorage.setItem('elmisterOnlineApi',api());msg('Servidor guardado.');}
+function msg(t){$('lobbyMsg').textContent=t}
+async function req(path,opt={}){if(!api())throw new Error('Falta configurar el servidor Online de pruebas.');const r=await fetch(api()+path,{headers:{'content-type':'application/json'},...opt});const d=await r.json();if(!r.ok)throw new Error(d.message||'Error Online');return d}
+function identity(){let id=localStorage.getItem('elmisterPlayerId');if(!id){id=crypto.randomUUID();localStorage.setItem('elmisterPlayerId',id)}return id}
+async function createRoom(){try{const name=$('name').value.trim()||'DT local';localStorage.setItem('elmisterDtName',name);msg('Creando sala…');const d=await req('/api/rooms',{method:'POST',body:JSON.stringify({name,playerId:identity()})});enter(d)}catch(e){msg(e.message)}}
+async function joinRoom(){try{const name=$('name').value.trim()||'DT visitante',code=$('code').value.trim().toUpperCase();if(code.length!==7)throw new Error('Ingresá el código de 7 caracteres.');localStorage.setItem('elmisterDtName',name);msg('Entrando…');const d=await req('/api/rooms/'+code+'/join',{method:'POST',body:JSON.stringify({name,playerId:identity()})});enter(d)}catch(e){msg(e.message)}}
+function enter(d){token=d.token;slot=d.slot;state=d.state;$('lobby').classList.add('hide');$('game').classList.remove('hide');render();connectWs()}
+function connectWs(){if(ws)try{ws.close()}catch{};const base=api().replace(/^http/,'ws');ws=new WebSocket(base+'/api/rooms/'+state.code+'/ws?token='+encodeURIComponent(token));ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.state){state=m.state;selected=null;$('locked').classList.add('hide');render()}};ws.onclose=()=>setTimeout(()=>{if(state&&state.status!=='finished')connectWs()},1800)}
+function render(){if(!state)return;$('roomCode').textContent=state.code;$('p0').textContent=state.players[0]?.name||'Esperando';$('p1').textContent=state.players[1]?.name||'Esperando';$('s0').textContent=state.penalties.score[0];$('s1').textContent=state.penalties.score[1];$('log').innerHTML=state.penalties.kicks.map(k=>'<span class="dot '+k.outcome+'">'+(k.outcome==='goal'?'✓':'×')+'</span>').join('');
+if(state.status==='waiting'){$('status').textContent='Compartí el código con el otro DT';$('playCard').classList.add('hide');$('finish').classList.add('hide');return}
+if(state.status==='finished'){const w=state.penalties.winnerSlot;$('status').textContent='Tanda finalizada';$('playCard').classList.add('hide');$('finish').classList.remove('hide');$('finishTitle').textContent=w===slot?'🏆 ¡Ganaste!':'Final de la tanda';$('finishText').textContent=(state.players[w]?.name||'Un DT')+' ganó '+state.penalties.score[w]+'-'+state.penalties.score[1-w]+'.';return}
+$('finish').classList.add('hide');$('playCard').classList.remove('hide');const shooter=state.penalties.shooterSlot===slot;$('roleTitle').textContent=shooter?'⚽ Te toca patear':'🧤 Te toca atajar';$('roleText').textContent=shooter?'Elegí dónde patear y después clavá la precisión lo más cerca posible de la zona verde.':'Elegí hacia dónde tirarte. El remate del rival está oculto hasta que ambos confirmen.';$('timingWrap').classList.toggle('hide',!shooter);$('status').textContent='Penal '+(state.penalties.totalKicks+1)+' · '+(shooter?'PATEÁS':'ATAJÁS');document.querySelectorAll('.dir').forEach(b=>b.classList.toggle('selected',Number(b.dataset.d)===selected));if(shooter)startTiming();else stopTiming()}
+document.querySelectorAll('.dir[data-d]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.d);document.querySelectorAll('.dir').forEach(x=>x.classList.toggle('selected',Number(x.dataset.d)===selected))});
+function startTiming(){if(timer)return;timer=setInterval(()=>{needleX+=needleDir*2.6;if(needleX>=99){needleX=99;needleDir=-1}if(needleX<=0){needleX=0;needleDir=1}$('needle').style.left=needleX+'%'},28)}function stopTiming(){if(timer){clearInterval(timer);timer=null}}
+async function lockChoice(){if(selected===null)return alert('Elegí una dirección.');try{const shooter=state.penalties.shooterSlot===slot;let timing=.5;if(shooter){stopTiming();const center=50;timing=Math.max(0,1-Math.abs(needleX-center)/50)}$('lockBtn').disabled=true;const d=await req('/api/rooms/'+state.code+'/penalty/choice',{method:'POST',body:JSON.stringify({token,direction:selected,timing})});state=d.state;$('locked').classList.remove('hide');selected=null;render()}catch(e){alert(e.message)}finally{$('lockBtn').disabled=false}}
+async function rematch(){try{const d=await req('/api/rooms/'+state.code+'/rematch',{method:'POST',body:JSON.stringify({token})});state=d.state;render()}catch(e){alert(e.message)}}
+</script></body></html>
