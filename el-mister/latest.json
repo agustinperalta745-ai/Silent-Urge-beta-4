@@ -1,13 +1,14 @@
 {
-  "versionCode": 14,
-  "versionName": "0.6.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.3.apk",
+  "versionCode": 13,
+  "versionName": "0.6.2",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.2.apk",
   "mandatory": false,
   "changes": [
-    "El partido ya no muestra el reloj corriendo: avanza internamente hasta la próxima decisión",
-    "Las sustituciones se hacen desde 🔄 Hacer cambio dentro de la misma decisión",
-    "Después de sustituir volvés a la decisión pendiente sin crear una pausa adicional"
+    "Interrupciones de partido probabilísticas según intensidad y contexto, sin pausas rígidas",
+    "Podés abrir Cambios desde una decisión y volver a la misma situación sin perderla",
+    "Nuevos minijuegos de lectura de pase, memoria de centros y reflejos del arquero",
+    "La dificultad de los minijuegos cambia según habilidad del jugador e importancia del partido"
   ],
-  "sha256": "b40ff09c5d5f88f52ed62363c2dcf06c5739de6f1702aa505c0094ed669871a5",
+  "sha256": "5523c8d70c1de7e5907afdf68b8e22a994d144ea649bc3b314718c6dfe7d9e53",
   "migration": true
 }
