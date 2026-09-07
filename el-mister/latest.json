@@ -1,14 +1,15 @@
 {
-  "versionCode": 14,
-  "versionName": "0.6.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.3.apk",
+  "versionCode": 17,
+  "versionName": "0.6.6",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.6.apk",
   "mandatory": false,
   "changes": [
-    "El partido ya no muestra el reloj corriendo: avanza internamente hasta la próxima decisión",
-    "Las sustituciones se hacen desde 🔄 Hacer cambio dentro de la misma decisión",
-    "Después de sustituir volvés a la decisión pendiente sin crear una pausa adicional",
-    "El paquete Android ahora usa versionCode 14 y versión 0.6.3 reales"
+    "La tabla ahora marca visualmente las zonas de clasificación según cada división",
+    "Primera muestra zonas de Copa Libertador y Copa Regional",
+    "Cuarta muestra Ascenso directo, Promoción y Copa Ascenso desde el 3.º al 10.º",
+    "La Copa Interdivisional queda habilitada solo para Primera y Segunda y comienza en 16avos",
+    "Copa Libertador y Copa Regional ahora enfrentan a clubes ficticios de otras ligas"
   ],
-  "sha256": "d47bef2b0e68f9ce7ca1fb5b4c875780d5f3abeaaf7fc98616fe21b8d16bad3f",
+  "sha256": "c7e01d2ae0c5c5684f255ac0ffee7e6fb066a5782be64e62932f7e94e19f28b7",
   "migration": true
 }
