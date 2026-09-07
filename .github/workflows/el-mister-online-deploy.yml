@@ -1,6 +1,12 @@
 name: El Mister Online Deploy
 
 on:
+  push:
+    branches:
+      - el-mister-updates
+    paths:
+      - 'el-mister/online/worker/**'
+      - '.github/workflows/el-mister-online-deploy.yml'
   workflow_dispatch:
 
 jobs:
