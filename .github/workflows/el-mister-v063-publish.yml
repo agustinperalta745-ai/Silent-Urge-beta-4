@@ -1,0 +1,64 @@
+name: Publish El Mister v0.6.3
+
+on:
+  push:
+    branches: [el-mister-v063-publish-staging]
+    paths:
+      - '.github/workflows/el-mister-v063-publish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-v063-publish-staging
+          fetch-depth: 0
+
+      - name: Reassemble and verify signed v0.6.3
+        shell: bash
+        run: |
+          cat el-mister/build/v063-signed2/*.b64 | base64 -d > /tmp/El-Mister-v0.6.3.apk
+          echo 'b40ff09c5d5f88f52ed62363c2dcf06c5739de6f1702aa505c0094ed669871a5  /tmp/El-Mister-v0.6.3.apk' | sha256sum -c -
+          test "$(stat -c%s /tmp/El-Mister-v0.6.3.apk)" = "97637"
+          unzip -t /tmp/El-Mister-v0.6.3.apk
+          jarsigner -verify /tmp/El-Mister-v0.6.3.apk
+          unzip -p /tmp/El-Mister-v0.6.3.apk assets/index.html > /tmp/index-v063.html
+          grep -Fq "const VERSION='0.6.3';" /tmp/index-v063.html
+          grep -Fq "const VERSION_CODE=14;" /tmp/index-v063.html
+          grep -Fq 'function v063AdvanceUntilDecision()' /tmp/index-v063.html
+          grep -Fq 'v061StartClock=function(){v061StopClock()};' /tmp/index-v063.html
+          grep -Fq '🔄 Hacer cambio</button>' /tmp/index-v063.html
+          grep -Fq 'La decisión queda pendiente mientras hacés la sustitución.' /tmp/index-v063.html
+
+      - name: Publish to updater branch
+        shell: bash
+        run: |
+          git fetch origin el-mister-updates
+          git checkout -B el-mister-updates origin/el-mister-updates
+          cp /tmp/El-Mister-v0.6.3.apk el-mister/El-Mister-v0.6.3.apk
+          mkdir -p el-mister/source/v063
+          cp /tmp/index-v063.html el-mister/source/v063/index.html
+          cat > el-mister/latest.json <<'JSON'
+          {
+            "versionCode": 14,
+            "versionName": "0.6.3",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.3.apk",
+            "mandatory": false,
+            "changes": [
+              "El partido ya no muestra el reloj corriendo: avanza internamente hasta la próxima decisión",
+              "Las sustituciones se hacen desde 🔄 Hacer cambio dentro de la misma decisión",
+              "Después de sustituir volvés a la decisión pendiente sin crear una pausa adicional"
+            ],
+            "sha256": "b40ff09c5d5f88f52ed62363c2dcf06c5739de6f1702aa505c0094ed669871a5",
+            "migration": true
+          }
+          JSON
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.6.3.apk el-mister/source/v063/index.html el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.6.3 via auto-updater'
+          git push origin HEAD:el-mister-updates
