@@ -18,27 +18,29 @@ css = r'''
 '''
 html = html.replace('</style>', css + '\n</style>', 1)
 
+pitch_old = '<div class="pitchName">${surname(p)}</div><div class="pitchFitness ${tone}">'
+pitch_new = '<div class="pitchName"><span class="stageEmoji">${v064CareerEmoji(p)}</span>${surname(p)}</div><div class="pitchFitness ${tone}">'
+bench_old = '<div class="benchName">${surname(p)}</div>${v061FitnessBar(p)}${v061InjuryLabel(p)}'
+bench_new = '<div class="benchName"><span class="stageEmoji">${v064CareerEmoji(p)}</span>${surname(p)}</div>${v061FitnessBar(p)}${v061InjuryLabel(p)}'
+board_old = '<div class="tacticalBoard"><div class="footballPitch">'
+board_new = '<div class="squadStageLegend"><span>🌱 Joven</span><span>⚽ Adulto</span><span>👴🏻 Veterano</span></div><div class="tacticalBoard"><div class="footballPitch">'
+
+if pitch_old not in html:
+    raise SystemExit('final pitch player template not found')
+if bench_old not in html:
+    raise SystemExit('final bench player template not found')
+html = html.replace(pitch_old, pitch_new, 1)
+html = html.replace(bench_old, bench_new, 1)
+# Replace the LAST tactical board occurrence so the legend is attached to the active squad renderer.
+pos = html.rfind(board_old)
+if pos < 0:
+    raise SystemExit('active tactical board not found')
+html = html[:pos] + board_new + html[pos+len(board_old):]
+
 anchor = "load();if(S){formation=S.formation||formation;tacticalChoice=S.tactic||tacticalChoice;ensureLineup();save()}render();setTimeout(()=>checkForUpdates(false),1500);"
 patch = r'''
 /* ===== El Míster v0.6.4 · indicador de etapa de carrera en Plantel ===== */
 function v064CareerEmoji(p){let s=careerStage(p);return s==='Juvenil'?'🌱':s==='Veterano'?'👴🏻':'⚽'}
-
-const _v064FirstTeamHtml=renderFirstTeamHtml;
-renderFirstTeamHtml=function(){
- let html=_v064FirstTeamHtml();
- html=html.replace(/<div class="pitchName">([^<]*)<\/div>/g,(m,n)=>{
-   let clean=n;
-   let p=(S.roster||[]).find(x=>surname(x)===clean);
-   return p?`<div class="pitchName"><span class="stageEmoji">${v064CareerEmoji(p)}</span>${clean}</div>`:m;
- });
- html=html.replace(/<div class="benchName">([^<]*)<\/div>/g,(m,n)=>{
-   let clean=n;
-   let p=(S.roster||[]).find(x=>surname(x)===clean);
-   return p?`<div class="benchName"><span class="stageEmoji">${v064CareerEmoji(p)}</span>${clean}</div>`:m;
- });
- html=html.replace('<div class="tacticalBoard">','<div class="squadStageLegend"><span>🌱 Joven</span><span>⚽ Adulto</span><span>👴🏻 Veterano</span></div><div class="tacticalBoard">');
- return html;
-};
 
 '''
 if anchor not in html:
@@ -52,7 +54,7 @@ checks = [
     "🌱 Joven",
     "⚽ Adulto",
     "👴🏻 Veterano",
-    "stageEmoji",
+    "${v064CareerEmoji(p)}",
 ]
 for check in checks:
     if check not in html:
