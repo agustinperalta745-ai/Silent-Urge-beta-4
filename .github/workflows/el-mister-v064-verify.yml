@@ -1,0 +1,49 @@
+name: Verify El Mister v0.6.4
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/patch-v064.py'
+      - '.github/workflows/el-mister-v064-verify.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Build editable v0.6.4 source
+        shell: bash
+        run: |
+          mkdir -p el-mister/source/v064
+          python3 el-mister/patch-v064.py el-mister/source/v063/index.html el-mister/source/v064/index.html
+          grep -q "const VERSION='0.6.4'" el-mister/source/v064/index.html
+          grep -q "const VERSION_CODE=15" el-mister/source/v064/index.html
+          grep -q "function v064CareerEmoji" el-mister/source/v064/index.html
+          grep -q "🌱 Joven" el-mister/source/v064/index.html
+          grep -q "⚽ Adulto" el-mister/source/v064/index.html
+          grep -q "👴🏻 Veterano" el-mister/source/v064/index.html
+          grep -q 'stageEmoji.*v064CareerEmoji' el-mister/source/v064/index.html
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, pathlib
+          s=pathlib.Path('el-mister/source/v064/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script[^>]*>(.*?)</script>',s,re.S)
+          pathlib.Path('/tmp/v064.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/v064.js
+      - name: Commit verified source
+        shell: bash
+        run: |
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v064/index.html
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.6.4 squad stage indicators'
+          git push origin HEAD:el-mister-updates
