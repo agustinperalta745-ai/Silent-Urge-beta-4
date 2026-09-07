@@ -1,0 +1,118 @@
+name: Publish El Mister v0.6.6
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/v066-publish-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Reconstruct stable Android base
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/elmister066
+          mkdir -p /tmp/elmister066/work /tmp/elmister066/out
+          cat el-mister/build/v062/*.b64 | base64 -d > /tmp/elmister066/base.apk
+          echo '5523c8d70c1de7e5907afdf68b8e22a994d144ea649bc3b314718c6dfe7d9e53  /tmp/elmister066/base.apk' | sha256sum -c -
+          unzip -q /tmp/elmister066/base.apk -d /tmp/elmister066/work
+          rm -rf /tmp/elmister066/work/META-INF
+
+      - name: Build El Mister v0.6.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp el-mister/source/v063/index.html /tmp/elmister066/work/assets/index.html
+          cat el-mister/build/v066/patch-*.b64 | base64 -d | gzip -d > /tmp/elmister066/v066.patch
+          echo '52d89f77d2f47303a9a1de71c3bf10e4be0ce036455b2c3d5dd133a25043c62b  /tmp/elmister066/v066.patch' | sha256sum -c -
+          (cd /tmp/elmister066/work/assets && patch index.html < /tmp/elmister066/v066.patch)
+          echo '3778707033ef00af535a7bd5b28eef60e631dde74a72a3ec946e3f2b5fb58cbb  /tmp/elmister066/work/assets/index.html' | sha256sum -c -
+          grep -q "const VERSION='0.6.6'" /tmp/elmister066/work/assets/index.html
+          grep -q 'const VERSION_CODE=17' /tmp/elmister066/work/assets/index.html
+          grep -q 'Copa Libertador' /tmp/elmister066/work/assets/index.html
+          grep -q 'Copa Regional' /tmp/elmister066/work/assets/index.html
+          grep -q 'Copa Interdivisional' /tmp/elmister066/work/assets/index.html
+          grep -q 'Copa Ascenso' /tmp/elmister066/work/assets/index.html
+          mkdir -p el-mister/source/v066
+          cp /tmp/elmister066/work/assets/index.html el-mister/source/v066/index.html
+
+      - name: Set Android package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/elmister066/work/AndroidManifest.xml')
+          b=bytearray(p.read_bytes())
+          old_code=int.from_bytes(b[840:844], 'little')
+          assert old_code == 9, old_code
+          b[840:844]=(17).to_bytes(4, 'little')
+          assert b.count(b'0.5.0\x00') == 1
+          b=b.replace(b'0.5.0\x00', b'0.6.6\x00', 1)
+          p.write_bytes(b)
+          assert int.from_bytes(b[840:844], 'little') == 17
+          assert b'0.6.6\x00' in b
+          PY
+
+      - name: Restore verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/elmister066/work/META-INF
+          echo 'TWFuaWZlc3QtVmVyc2lvbjogMS4wDQpDcmVhdGVkLUJ5OiAyMS4wLjExIChEZWJpYW4pDQoNCk5hbWU6IEFuZHJvaWRNYW5pZmVzdC54bWwNClNIQS0zODQtRGlnZXN0OiBBbVJxeC9aZWEyQjJTVFBqKytpSFpOR29vMW9ianVlcjBodTZ3QWJHTkZBRzZxeDhvdXdRczNRbg0KIDM4dkcwZExoDQoNCk5hbWU6IGNsYXNzZXMuZGV4DQpTSEEtMzg0LURpZ2VzdDogWnE4UlBxQ1E5QjZtWGlQc21iQkY3YUt3WXBFQlhKUzlFSkR2cXdydDl5R2xZVFJxWE0xd1hqc3YNCiB0dUNYRWlTVw0KDQpOYW1lOiBhc3NldHMvaW5kZXguaHRtbA0KU0hBLTM4NC1EaWdlc3Q6IGZJTDVCMldSeFUxRUNqY2dyRWJ3eGtEM2RkcEQ2YzdjL2NlbnNpdW8xNnB2NzV2d3VpZU9kQzloDQogaXVjQW02cmQNCg0K' | base64 -d > /tmp/elmister066/work/META-INF/MANIFEST.MF
+          echo 'U2lnbmF0dXJlLVZlcnNpb246IDEuMA0KQ3JlYXRlZC1CeTogMjEuMC4xMSAoRGViaWFuKQ0KU0hBLTM4NC1EaWdlc3QtTWFuaWZlc3Q6IGFlWjd6Ui9Eb2VIWGFpblFsY2xrazF0RFNSZFZRc0hmM29QcUl0UHJqZGJQSjhMDQogNFlxaUZmVUpnNVFwNlBHV3INClNIQS0zODQtRGlnZXN0LU1hbmlmZXN0LU1haW4tQXR0cmlidXRlczogdElNc1RJUlBtWThaUFp4c3kydHQ1QkExVlV2R01UYg0KIDA3cjVrV1VIYjAzNmdnK1hRWlE1cGQyNHBYc2pJSWRRMg0KDQpOYW1lOiBBbmRyb2lkTWFuaWZlc3QueG1sDQpTSEEtMzg0LURpZ2VzdDogY3RqZExDZU5GQTZqSjBLTFkra1ROVGpJcjJrdTArUG0vZnNnZzhZb2I5OXhKdU10OGhLcjloMzUNCiBvZmFXcFZaSw0KDQpOYW1lOiBjbGFzc2VzLmRleA0KU0hBLTM4NC1EaWdlc3Q6IGE3b01SWVRjNE51cUlnMC9MVWJtNFhnVXhvMmZNMzJyVStvbWFOOEhVaWNOT3pDSDhjNUxPUktsDQogS3lGNVkvbUUNCg0KTmFtZTogYXNzZXRzL2luZGV4Lmh0bWwNClNIQS0zODQtRGlnZXN0OiBpZU5ReUpWZmJ5MExDRUVieFhLZG9Xb24zcEJjYUJBZVdtQ3YrWC83SGcyRmNXVmo5WTVGTWcrZQ0KIGFzU2tmV0IxDQoNCg==' | base64 -d > /tmp/elmister066/work/META-INF/ELMISTER.SF
+          echo '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' | base64 -d > /tmp/elmister066/work/META-INF/ELMISTER.RSA
+
+      - name: Package and verify signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/elmister066/work
+          zip -q -r /tmp/elmister066/out/El-Mister-v0.6.6.apk .
+          unzip -t /tmp/elmister066/out/El-Mister-v0.6.6.apk
+          jarsigner -verify /tmp/elmister066/out/El-Mister-v0.6.6.apk
+          cp /tmp/elmister066/out/El-Mister-v0.6.6.apk "$GITHUB_WORKSPACE/el-mister/El-Mister-v0.6.6.apk"
+          sha256sum "$GITHUB_WORKSPACE/el-mister/El-Mister-v0.6.6.apk" | tee /tmp/v066.sha
+
+      - name: Publish updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(cut -d' ' -f1 /tmp/v066.sha)
+          cat > el-mister/latest.json <<JSON
+          {
+            "versionCode": 17,
+            "versionName": "0.6.6",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.6.apk",
+            "mandatory": false,
+            "changes": [
+              "La tabla ahora marca visualmente las zonas de clasificación según cada división",
+              "Primera muestra zonas de Copa Libertador y Copa Regional",
+              "Cuarta muestra Ascenso directo, Promoción y Copa Ascenso desde el 3.º al 10.º",
+              "La Copa Interdivisional queda habilitada solo para Primera y Segunda y comienza en 16avos",
+              "Copa Libertador y Copa Regional ahora enfrentan a clubes ficticios de otras ligas"
+            ],
+            "sha256": "$SHA",
+            "migration": true
+          }
+          JSON
+
+      - name: Commit verified release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.6.6.apk el-mister/latest.json el-mister/source/v066/index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.6.6 competitions update'
+          git push origin HEAD:el-mister-updates
