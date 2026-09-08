@@ -39,6 +39,9 @@ jobs:
           perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/MANIFEST.MF > /tmp/v072/apk/META-INF/MANIFEST.MF
           perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/ELMISTER.SF > /tmp/v072/apk/META-INF/ELMISTER.SF
           base64 -d el-mister/release/v072-safe/ELMISTER.RSA.b64 > /tmp/v072/apk/META-INF/ELMISTER.RSA
+          echo 'd095ee16d1637fa65355d0e6f676ac4bd7a8cda06f96ccf2eff6ed92f68e2e28  /tmp/v072/apk/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo 'c8a9f8acf544078974f9dfff985ac564097a73959f685613efc78f64253aa310  /tmp/v072/apk/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '5dd64ebcf8bba61b21245cf23d6fe8b5409e2a067b35ab0787b7caa0440ab3a3  /tmp/v072/apk/META-INF/ELMISTER.RSA' | sha256sum -c -
           cmp /tmp/v072/apk/AndroidManifest.xml <(unzip -p el-mister/El-Mister-v0.6.9.apk AndroidManifest.xml)
           cd /tmp/v072/apk
           zip -q -X /tmp/v072/El-Mister-v0.7.2.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA classes.dex AndroidManifest.xml assets/index.html
