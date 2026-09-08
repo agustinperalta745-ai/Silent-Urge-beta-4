@@ -1,0 +1,11 @@
+Manifest-Version: 1.0
+Created-By: 21.0.11 (Debian)
+
+Name: AndroidManifest.xml
+SHA-256-Digest: ctjZkJhPXnqk/cUymkvf8Qz75K/61cV/bbl12IXIQaY=
+
+Name: classes.dex
+SHA-256-Digest: JLmTjxQKxlvpPfuU5PuJqixK91T7w42+tO59sWS7Gkg=
+
+Name: assets/index.html
+SHA-256-Digest: Up984kkBKMeGDkU3qAo6CtD3P7clo7w0EVl3h3wdIT0=
