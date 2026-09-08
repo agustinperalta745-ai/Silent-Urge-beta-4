@@ -1,0 +1,14 @@
+Manifest-Version: 1.0
+Created-By: 21.0.11 (Debian)
+
+Name: AndroidManifest.xml
+SHA-384-Digest: 0PFJMgcLsuaJMDKB19xNAzloBKJA13ksidBT0PtV32PFO2rPT+mZT31i
+ vxmAhWCS
+
+Name: classes.dex
+SHA-384-Digest: Zq8RPqCQ9B6mXiPsmbBF7aKwYpEBXJS9EJDvqwrt9yGlYTRqXM1wXjsv
+ tuCXEiSW
+
+Name: assets/index.html
+SHA-384-Digest: 888oSCUEVkABZPAYZPN5+KPyf22ibbxC+KlS+Pl6sgnxo7gomMMkFJ3X
+ kfAVNYyw
