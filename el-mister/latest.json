@@ -1,16 +1,15 @@
 {
-  "versionCode": 19,
-  "versionName": "0.6.8",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.8.apk",
+  "versionCode": 20,
+  "versionName": "0.6.9",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.9.apk",
   "mandatory": false,
   "changes": [
-    "El Míster Online ahora incluye Partido amistoso DT vs DT",
-    "Se agregó el acceso a Ligas Online de hasta 10 DTs",
-    "Elección libre o sorteo de equipos, fixture, tabla y horarios configurables",
-    "Penales Online sigue disponible junto a los nuevos modos",
-    "El botón Online queda integrado al menú principal"
+    "Hotfix Online: se elimina la redirección externa que cerraba/crasheaba la app",
+    "Penales Online vuelve a abrirse de forma segura dentro de El Míster",
+    "Amistoso DT vs DT y Ligas Online usan la ruta correcta /online.html",
+    "Se agregó una vista Online embebida con botón Volver"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "ead783380b387075f6933683070ec7834bb7d8bd2d1c2fa911a84d7d6a55eba2",
+  "sha256": "b3fdb54c750508e8bd103c98f87393b54874465e5802c2f34402cafcda04aa7f",
   "migration": true
 }
