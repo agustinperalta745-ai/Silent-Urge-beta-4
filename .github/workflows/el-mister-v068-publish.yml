@@ -1,0 +1,100 @@
+name: Publish El Mister v0.6.8 Online
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v068-build/**'
+      - '.github/workflows/el-mister-v068-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Rebuild v0.6.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/elmister068
+          mkdir -p /tmp/elmister068/work /tmp/elmister068/out /tmp/elmister068/signature/META-INF
+          cat el-mister/release/v068-build/patch00.b64 el-mister/release/v068-build/patch01.b64 | base64 -d | gzip -dc > /tmp/elmister068/v068.diff
+          cp el-mister/source/v066/index.html /tmp/elmister068/index.html
+          patch /tmp/elmister068/index.html < /tmp/elmister068/v068.diff
+          grep -q "const VERSION='0.6.8'" /tmp/elmister068/index.html
+          grep -q 'const VERSION_CODE=19' /tmp/elmister068/index.html
+          grep -q 'Partido amistoso DT vs DT' /tmp/elmister068/index.html
+          grep -q 'Ligas Online' /tmp/elmister068/index.html
+
+      - name: Build APK contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -q el-mister/El-Mister-v0.6.6.apk -d /tmp/elmister068/work
+          rm -rf /tmp/elmister068/work/META-INF
+          cp /tmp/elmister068/index.html /tmp/elmister068/work/assets/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/elmister068/work/AndroidManifest.xml')
+          b=bytearray(p.read_bytes())
+          old=int.from_bytes(b[840:844],'little')
+          assert old==17, old
+          b[840:844]=(19).to_bytes(4,'little')
+          assert b.count(b'0.6.6\x00')==1
+          b=b.replace(b'0.6.6\x00',b'0.6.8\x00',1)
+          p.write_bytes(b)
+          PY
+          (cd /tmp/elmister068/work && zip -q -r /tmp/elmister068/out/El-Mister-v0.6.8.apk .)
+          unzip -t /tmp/elmister068/out/El-Mister-v0.6.8.apk
+
+      - name: Attach release signature and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v068-build/MANIFEST.MF.b64 > /tmp/elmister068/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v068-build/ELMISTER.SF.b64 > /tmp/elmister068/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v068-build/ELMISTER.RSA.b64 > /tmp/elmister068/signature/META-INF/ELMISTER.RSA
+          (cd /tmp/elmister068/signature && zip -q -g -r /tmp/elmister068/out/El-Mister-v0.6.8.apk META-INF)
+          jarsigner -verify /tmp/elmister068/out/El-Mister-v0.6.8.apk 2>&1 | tee /tmp/jarverify.txt
+          grep -q 'jar verified' /tmp/jarverify.txt
+          keytool -printcert -file el-mister/release-cert.pem | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/expected.fp
+          keytool -printcert -jarfile /tmp/elmister068/out/El-Mister-v0.6.8.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/actual.fp
+          diff -u /tmp/expected.fp /tmp/actual.fp
+          sha256sum /tmp/elmister068/out/El-Mister-v0.6.8.apk | tee /tmp/v068.sha
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/elmister068/out/El-Mister-v0.6.8.apk el-mister/El-Mister-v0.6.8.apk
+          SHA=$(cut -d' ' -f1 /tmp/v068.sha)
+          cat > el-mister/latest.json <<JSON
+          {
+            "versionCode": 19,
+            "versionName": "0.6.8",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.8.apk",
+            "mandatory": false,
+            "changes": [
+              "El Míster Online ahora incluye Partido amistoso DT vs DT",
+              "Se agregó el acceso a Ligas Online de hasta 10 DTs",
+              "Elección libre o sorteo de equipos, fixture, tabla y horarios configurables",
+              "Penales Online sigue disponible junto a los nuevos modos",
+              "El botón Online queda integrado al menú principal"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          JSON
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.6.8.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish signed El Mister v0.6.8 Online update'
+          git push origin HEAD:el-mister-updates
