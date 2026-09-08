@@ -1,0 +1,104 @@
+name: Publish El Mister v0.6.7 Online
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/v067-online-publish-trigger.txt'
+      - '.github/workflows/el-mister-v067-online-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Require release signing key
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.ELMISTER_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ELMISTER_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ELMISTER_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ELMISTER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KS_B64" || { echo 'MISSING: ELMISTER_KEYSTORE_B64'; exit 21; }
+          test -n "$KS_PASS" || { echo 'MISSING: ELMISTER_KEYSTORE_PASSWORD'; exit 22; }
+          test -n "$KEY_ALIAS" || { echo 'MISSING: ELMISTER_KEY_ALIAS'; exit 23; }
+          test -n "$KEY_PASS" || { echo 'MISSING: ELMISTER_KEY_PASSWORD'; exit 24; }
+          printf '%s' "$KS_B64" | base64 -d > /tmp/elmister-release.jks
+          keytool -list -keystore /tmp/elmister-release.jks -storepass "$KS_PASS" -alias "$KEY_ALIAS" >/dev/null
+
+      - name: Build v0.6.7 Online APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/elmister067
+          mkdir -p /tmp/elmister067/work /tmp/elmister067/out
+          unzip -q el-mister/El-Mister-v0.6.6.apk -d /tmp/elmister067/work
+          rm -rf /tmp/elmister067/work/META-INF
+          cp el-mister/source/v067/index.html /tmp/elmister067/work/assets/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/elmister067/work/AndroidManifest.xml')
+          b=bytearray(p.read_bytes())
+          old=int.from_bytes(b[840:844],'little')
+          assert old==17, old
+          b[840:844]=(18).to_bytes(4,'little')
+          assert b.count(b'0.6.6\x00')==1
+          b=b.replace(b'0.6.6\x00',b'0.6.7\x00',1)
+          p.write_bytes(b)
+          PY
+          (cd /tmp/elmister067/work && zip -q -r /tmp/elmister067/out/El-Mister-v0.6.7.apk .)
+          unzip -t /tmp/elmister067/out/El-Mister-v0.6.7.apk
+          unzip -p /tmp/elmister067/out/El-Mister-v0.6.7.apk assets/index.html | grep -q 'V067_ONLINE_API'
+
+      - name: Sign with El Mister release key and verify certificate
+        shell: bash
+        env:
+          KS_PASS: ${{ secrets.ELMISTER_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ELMISTER_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ELMISTER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          jarsigner -keystore /tmp/elmister-release.jks -storepass "$KS_PASS" -keypass "$KEY_PASS" -sigalg SHA384withRSA -digestalg SHA-384 /tmp/elmister067/out/El-Mister-v0.6.7.apk "$KEY_ALIAS"
+          jarsigner -verify -strict /tmp/elmister067/out/El-Mister-v0.6.7.apk
+          keytool -printcert -file el-mister/release-cert.pem | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/expected.fp
+          keytool -printcert -jarfile /tmp/elmister067/out/El-Mister-v0.6.7.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/actual.fp
+          test -s /tmp/expected.fp && test -s /tmp/actual.fp
+          diff -u /tmp/expected.fp /tmp/actual.fp
+          sha256sum /tmp/elmister067/out/El-Mister-v0.6.7.apk | tee /tmp/v067.sha
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/elmister067/out/El-Mister-v0.6.7.apk el-mister/El-Mister-v0.6.7.apk
+          SHA=$(cut -d' ' -f1 /tmp/v067.sha)
+          cat > el-mister/latest.json <<JSON
+          {
+            "versionCode": 18,
+            "versionName": "0.6.7",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.7.apk",
+            "mandatory": false,
+            "changes": [
+              "Se agregó 🌐 Online directamente dentro de El Míster",
+              "Penales Online 1v1 entre dos teléfonos con código de sala",
+              "Las elecciones de pateador y arquero permanecen ocultas hasta resolver el penal",
+              "La dirección seleccionada ya no se desmarca por actualizaciones del rival"
+            ],
+            "sha256": "$SHA",
+            "migration": true
+          }
+          JSON
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.6.7.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish signed El Mister v0.6.7 Online update'
+          git push origin HEAD:el-mister-updates
