@@ -1,0 +1,53 @@
+name: Publish El Mister v0.7.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v073/trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare v0.7.3 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp el-mister/El-Mister-v0.7.2.apk el-mister/El-Mister-v0.7.3.apk
+          unzip -t el-mister/El-Mister-v0.7.3.apk
+          jarsigner -verify -verbose -certs el-mister/El-Mister-v0.7.3.apk | grep 'jar verified'
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.3.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 24,
+            "versionName": "0.7.3",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.3.apk",
+            "mandatory": false,
+            "changes": [
+              "Online: cada partido de liga incorpora Jugar ahora y estado de listo por DT",
+              "Cuando ambos rivales están listos, el partido queda habilitado para jugar antes de la fecha programada",
+              "Crear liga permite comenzar hoy o elegir una fecha de inicio",
+              "El fixture respeta la fecha inicial, los días habilitados y el rango horario configurado",
+              "Online continúa migrando la gestión de equipo para reutilizar la experiencia del modo offline"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.3.apk el-mister/latest.json
+          git commit -m 'Publish El Mister v0.7.3 online play-now update'
+          git push
