@@ -1,15 +1,14 @@
 {
-  "versionCode": 17,
-  "versionName": "0.6.6",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.6.apk",
+  "versionCode": 18,
+  "versionName": "0.6.7",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.7.apk",
   "mandatory": false,
   "changes": [
-    "La tabla ahora marca visualmente las zonas de clasificación según cada división",
-    "Primera muestra zonas de Copa Libertador y Copa Regional",
-    "Cuarta muestra Ascenso directo, Promoción y Copa Ascenso desde el 3.º al 10.º",
-    "La Copa Interdivisional queda habilitada solo para Primera y Segunda y comienza en 16avos",
-    "Copa Libertador y Copa Regional ahora enfrentan a clubes ficticios de otras ligas"
+    "Se agregó 🌐 Online directamente dentro de El Míster",
+    "Penales Online 1v1 entre dos teléfonos con código de sala",
+    "Las elecciones de pateador y arquero permanecen ocultas hasta resolver el penal",
+    "La dirección seleccionada ya no se desmarca por actualizaciones del rival"
   ],
-  "sha256": "c7e01d2ae0c5c5684f255ac0ffee7e6fb066a5782be64e62932f7e94e19f28b7",
+  "sha256": "192a83ebfde1437226d4348f19b4176841aabc7d629c99e9ef4992fabbe3a1a8",
   "migration": true
 }
