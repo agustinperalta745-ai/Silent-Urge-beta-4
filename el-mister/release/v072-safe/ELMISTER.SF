@@ -1,0 +1,18 @@
+Signature-Version: 1.0
+Created-By: 21.0.11 (Debian)
+SHA-384-Digest-Manifest: BZYy6vBcJilbiux05AwiTSCIDDt3zv3m5FqXF7Gk4OzHM+z
+ TNrzZj+mpD8SeXhOJ
+SHA-384-Digest-Manifest-Main-Attributes: tIMsTIRPmY8ZPZxsy2tt5BA1VUvGMTb
+ 07r5kWUHb036gg+XQZQ5pd24pXsjIIdQ2
+
+Name: AndroidManifest.xml
+SHA-384-Digest: v1BpqJzKCf45uwdxQuYTrMTRTFRexIMqifiXySuiZPPRYgBtqEpl26X5
+ kguKTJLa
+
+Name: classes.dex
+SHA-384-Digest: a7oMRYTc4NuqIg0/LUbm4XgUxo2fM32rU+omaN8HUicNOzCH8c5LORKl
+ KyF5Y/mE
+
+Name: assets/index.html
+SHA-384-Digest: NB3B4rTpoF17Zw8cVKZJuHC8Ig88ufyLO4S643BrZtoi2Wrx6jK+zCuK
+ kh6WqMX6
