@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Created-By: 17.0.20.1 (Eclipse Adoptium)
+
+Name: AndroidManifest.xml
+SHA-256-Digest: h987nslztgzzqJ5rJOlTM+VmOSHVXBLumaClt3xWT5w=
+
+Name: classes.dex
+SHA-256-Digest: JLmTjxQKxlvpPfuU5PuJqixK91T7w42+tO59sWS7Gkg=
+
+Name: assets/index.html
+SHA-256-Digest: 68Joi56boRxx/9XqgB7c/Vc2+NJbPiOVXWJWDMfZs0I=
+
