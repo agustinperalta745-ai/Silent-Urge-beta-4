@@ -1,0 +1,53 @@
+name: Prepare El Mister v0.7.0 signature
+on:
+  push:
+    branches: [el-mister-updates]
+    paths: ['el-mister/prepare-v070-trigger.txt','.github/workflows/prepare-v070-signature.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: el-mister-updates}
+      - name: Build exact v0.7.0 unsigned APK
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v070 && mkdir -p /tmp/v070/work /tmp/v070/out
+          unzip -q el-mister/El-Mister-v0.6.9.apk -d /tmp/v070/work
+          rm -rf /tmp/v070/work/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v070/work/assets/index.html')
+          s=p.read_text()
+          assert "const VERSION='0.6.9'" in s
+          assert 'const VERSION_CODE=20' in s
+          s=s.replace("const VERSION='0.6.9'","const VERSION='0.7.0'",1).replace('const VERSION_CODE=20','const VERSION_CODE=21',1)
+          old="let path=mode==='penalties'?'/' : '/online.html';"
+          new="let path=mode==='penalties'?'/':mode==='friendly'?'/online.html?mode=friendly':'/online.html?mode=league';"
+          assert old in s
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          m=Path('/tmp/v070/work/AndroidManifest.xml'); b=bytearray(m.read_bytes())
+          assert int.from_bytes(b[840:844],'little')==20
+          b[840:844]=(21).to_bytes(4,'little')
+          assert b.count(b'0.6.9\x00')==1
+          b=b.replace(b'0.6.9\x00',b'0.7.0\x00',1)
+          m.write_bytes(b)
+          PY
+          (cd /tmp/v070/work && zip -q -r /tmp/v070/out/unsigned.apk .)
+      - name: Produce key-independent JAR manifest and SF
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v070/out/dummy.apk /tmp/v070/out/unsigned.apk dummy >/dev/null 2>&1
+          mkdir -p el-mister/release/v070-prep
+          unzip -p /tmp/v070/out/dummy.apk META-INF/MANIFEST.MF > el-mister/release/v070-prep/MANIFEST.MF
+          unzip -p /tmp/v070/out/dummy.apk META-INF/DUMMY.SF > el-mister/release/v070-prep/ELMISTER.SF
+          sha256sum /tmp/v070/out/unsigned.apk | cut -d' ' -f1 > el-mister/release/v070-prep/unsigned.sha256
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v070-prep
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.7.0 signing metadata'
+          git push origin HEAD:el-mister-updates
