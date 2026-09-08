@@ -1,0 +1,80 @@
+name: Publish El Mister v0.7.0
+on:
+  push:
+    branches: [el-mister-updates]
+    paths: ['el-mister/publish-v070-trigger.txt','.github/workflows/publish-v070.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: el-mister-updates}
+      - name: Build exact v0.7.0 APK
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v070 && mkdir -p /tmp/v070/work /tmp/v070/sign/META-INF
+          unzip -q el-mister/El-Mister-v0.6.9.apk -d /tmp/v070/work
+          rm -rf /tmp/v070/work/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v070/work/assets/index.html')
+          s=p.read_text()
+          assert "const VERSION='0.6.9'" in s
+          assert 'const VERSION_CODE=20' in s
+          s=s.replace("const VERSION='0.6.9'","const VERSION='0.7.0'",1).replace('const VERSION_CODE=20','const VERSION_CODE=21',1)
+          old="let path=mode==='penalties'?'/' : '/online.html';"
+          new="let path=mode==='penalties'?'/':mode==='friendly'?'/online.html?mode=friendly':'/online.html?mode=league';"
+          assert old in s
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          m=Path('/tmp/v070/work/AndroidManifest.xml'); b=bytearray(m.read_bytes())
+          assert int.from_bytes(b[840:844],'little')==20
+          b[840:844]=(21).to_bytes(4,'little')
+          assert b.count(b'0.6.9\x00')==1
+          b=b.replace(b'0.6.9\x00',b'0.7.0\x00',1)
+          m.write_bytes(b)
+          PY
+          (cd /tmp/v070/work && zip -q -r /tmp/v070/El-Mister-v0.7.0.apk .)
+      - name: Attach production signature and verify
+        run: |
+          set -euo pipefail
+          cp el-mister/release/v070-prep/MANIFEST.MF /tmp/v070/sign/META-INF/MANIFEST.MF
+          cp el-mister/release/v070-prep/ELMISTER.SF /tmp/v070/sign/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v070-prep/ELMISTER.RSA.b64 > /tmp/v070/sign/META-INF/ELMISTER.RSA
+          (cd /tmp/v070/sign && zip -q -g -r /tmp/v070/El-Mister-v0.7.0.apk META-INF)
+          jarsigner -verify /tmp/v070/El-Mister-v0.7.0.apk 2>&1 | tee /tmp/verify.txt
+          grep -q 'jar verified' /tmp/verify.txt
+          keytool -printcert -file el-mister/release-cert.pem | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/expected.fp
+          keytool -printcert -jarfile /tmp/v070/El-Mister-v0.7.0.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/actual.fp
+          diff -u /tmp/expected.fp /tmp/actual.fp
+          sha256sum /tmp/v070/El-Mister-v0.7.0.apk | tee /tmp/v070.sha
+      - name: Publish APK and updater feed
+        run: |
+          set -euo pipefail
+          cp /tmp/v070/El-Mister-v0.7.0.apk el-mister/El-Mister-v0.7.0.apk
+          SHA=$(cut -d' ' -f1 /tmp/v070.sha)
+          cat > el-mister/latest.json <<JSON
+          {
+            "versionCode": 21,
+            "versionName": "0.7.0",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.0.apk",
+            "mandatory": false,
+            "changes": [
+              "Ligas Online: días de juego seleccionables de lunes a domingo",
+              "Podés elegir uno, varios o los siete días y el fixture se reparte automáticamente entre ellos",
+              "Ligas Online: rango horario Desde/Hasta para distribuir los partidos",
+              "Amistoso DT vs DT y Ligas Online ahora abren directamente en su propio menú",
+              "Cada partido mantiene propuestas de reprogramación entre los DTs"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          JSON
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.0.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.0 league scheduling update'
+          git push origin HEAD:el-mister-updates
