@@ -1,16 +1,17 @@
 {
-  "versionCode": 22,
-  "versionName": "0.7.1",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.1.apk",
+  "versionCode": 23,
+  "versionName": "0.7.2",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.2.apk",
   "mandatory": false,
   "changes": [
-    "Corrección de instalación: APK rehecho sobre la base estable v0.6.9 que Android instala correctamente",
-    "Online: Amistoso DT vs DT y Ligas Online abren directamente en su modo correspondiente",
-    "Ligas Online: selección de días Lun a Dom, desde 1 hasta 7 días",
-    "Ligas Online: rango horario Desde/Hasta para repartir automáticamente los partidos",
-    "Cada partido puede reprogramarse por propuesta, aceptación, rechazo o contraoferta entre ambos DTs"
+    "Ligas Online ahora tiene Mis ligas, Crear liga y Unirse a una liga",
+    "Cada liga abre un Centro de Liga con Inicio, Tabla, Partidos, Mi equipo y Gestión",
+    "El administrador puede completar los lugares libres con bots hasta un máximo de 10 participantes",
+    "Amistoso DT vs DT permite elegir cualquiera de los 40 clubes de El Míster y calcula automáticamente la fuerza del equipo",
+    "Amistosos y ligas incorporan preparación de formación, táctica e instrucciones antes de jugar",
+    "Los partidos de liga mantienen reprogramación por propuesta, aceptación, rechazo y contraoferta"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "df44f7e5fcbcb1b203d92df08fae9e66296acb2b16c8bf6a07d254a06a793b7b",
+  "sha256": "c26fe45003b2b430f4c1b74c49e1ef674658009bbf2e9d2d0db82af50e10f10c",
   "migration": true
 }
