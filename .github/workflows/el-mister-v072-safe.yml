@@ -16,7 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Rebuild v0.7.2 source
         shell: bash
         run: |
@@ -26,8 +25,7 @@ jobs:
           base64 -d el-mister/release/v072-safe/v072.diff.gz.b64 | gunzip > /tmp/v072/v072.diff
           patch /tmp/v072/index.html < /tmp/v072/v072.diff
           echo '1b0d9286adb58558d4b24bfab1e0b9fc8dd628632e119cfe9f31ccb3d258e5bd  /tmp/v072/index.html' | sha256sum -c -
-
-      - name: Assemble APK on known-good v0.6.9 manifest
+      - name: Assemble exact signed APK
         shell: bash
         run: |
           set -euo pipefail
@@ -36,18 +34,16 @@ jobs:
           unzip -p el-mister/El-Mister-v0.6.9.apk AndroidManifest.xml > /tmp/v072/apk/AndroidManifest.xml
           unzip -p el-mister/El-Mister-v0.6.9.apk classes.dex > /tmp/v072/apk/classes.dex
           cp /tmp/v072/index.html /tmp/v072/apk/assets/index.html
-          perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/MANIFEST.MF > /tmp/v072/apk/META-INF/MANIFEST.MF
-          perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/ELMISTER.SF > /tmp/v072/apk/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v072-safe/MANIFEST.exact.b64 > /tmp/v072/apk/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v072-safe/ELMISTER.exact.b64 > /tmp/v072/apk/META-INF/ELMISTER.SF
           base64 -d el-mister/release/v072-safe/ELMISTER.RSA.b64 > /tmp/v072/apk/META-INF/ELMISTER.RSA
           echo 'd095ee16d1637fa65355d0e6f676ac4bd7a8cda06f96ccf2eff6ed92f68e2e28  /tmp/v072/apk/META-INF/MANIFEST.MF' | sha256sum -c -
           echo 'c8a9f8acf544078974f9dfff985ac564097a73959f685613efc78f64253aa310  /tmp/v072/apk/META-INF/ELMISTER.SF' | sha256sum -c -
           echo '5dd64ebcf8bba61b21245cf23d6fe8b5409e2a067b35ab0787b7caa0440ab3a3  /tmp/v072/apk/META-INF/ELMISTER.RSA' | sha256sum -c -
-          cmp /tmp/v072/apk/AndroidManifest.xml <(unzip -p el-mister/El-Mister-v0.6.9.apk AndroidManifest.xml)
           cd /tmp/v072/apk
           zip -q -X /tmp/v072/El-Mister-v0.7.2.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA classes.dex AndroidManifest.xml assets/index.html
           unzip -t /tmp/v072/El-Mister-v0.7.2.apk
           jarsigner -verify -verbose -certs /tmp/v072/El-Mister-v0.7.2.apk | grep 'jar verified'
-
       - name: Publish APK and updater feed
         shell: bash
         run: |
