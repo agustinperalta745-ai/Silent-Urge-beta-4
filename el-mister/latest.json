@@ -1,15 +1,17 @@
 {
-  "versionCode": 20,
-  "versionName": "0.6.9",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.6.9.apk",
+  "versionCode": 21,
+  "versionName": "0.7.0",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.0.apk",
   "mandatory": false,
   "changes": [
-    "Hotfix Online: se elimina la redirección externa que cerraba/crasheaba la app",
-    "Penales Online vuelve a abrirse de forma segura dentro de El Míster",
-    "Amistoso DT vs DT y Ligas Online usan la ruta correcta /online.html",
-    "Se agregó una vista Online embebida con botón Volver"
+    "Online: Amistoso DT vs DT y Ligas Online ahora abren directamente en su modo correspondiente",
+    "Ligas Online: los días de juego se eligen con Lun, Mar, Mié, Jue, Vie, Sáb y Dom",
+    "Ligas Online: el creador puede elegir desde 1 hasta los 7 días de la semana",
+    "Ligas Online: se reemplaza el horario único por un rango Desde/Hasta",
+    "El fixture reparte automáticamente los partidos entre los días habilitados y dentro del rango horario",
+    "Cada partido puede reprogramarse mediante propuesta, aceptación, rechazo o contraoferta entre ambos DTs"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "b3fdb54c750508e8bd103c98f87393b54874465e5802c2f34402cafcda04aa7f",
+  "sha256": "04593a31f163f9e8581589374709c9d7285a110e07a8588e53a92c5fdcd860f7",
   "migration": true
 }
