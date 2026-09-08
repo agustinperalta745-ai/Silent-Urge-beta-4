@@ -1,0 +1,90 @@
+name: Build El Mister v0.6.7 Online
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/online/**'
+      - 'el-mister/patch-v067-online.py'
+      - '.github/workflows/el-mister-v067-online-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Generate v0.6.7 app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 el-mister/patch-v067-online.py el-mister/source/v066/index.html el-mister/source/v067/index.html
+          grep -q "const VERSION='0.6.7'" el-mister/source/v067/index.html
+          grep -q 'const VERSION_CODE=18' el-mister/source/v067/index.html
+          grep -q "V067_ONLINE_API='https://el-mister-online.agustinperalta745.workers.dev'" el-mister/source/v067/index.html
+          grep -q "\['online','🌐','Online'\]" el-mister/source/v067/index.html
+          grep -q 'changedKick||changedShooter||changedStatus' el-mister/source/v067/index.html
+
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('el-mister/source/v067/index.html').read_text(encoding='utf-8')
+          js=p[p.index('<script>')+8:p.rindex('</script>')]
+          Path('/tmp/el-mister-v067.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/el-mister-v067.js
+
+      - name: Build Android package candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/elmister067
+          mkdir -p /tmp/elmister067/work /tmp/elmister067/out
+          unzip -q el-mister/El-Mister-v0.6.6.apk -d /tmp/elmister067/work
+          rm -rf /tmp/elmister067/work/META-INF
+          cp el-mister/source/v067/index.html /tmp/elmister067/work/assets/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/elmister067/work/AndroidManifest.xml')
+          b=bytearray(p.read_bytes())
+          old_code=int.from_bytes(b[840:844], 'little')
+          assert old_code == 17, old_code
+          b[840:844]=(18).to_bytes(4, 'little')
+          assert b.count(b'0.6.6\x00') == 1
+          b=b.replace(b'0.6.6\x00', b'0.6.7\x00', 1)
+          p.write_bytes(b)
+          assert int.from_bytes(b[840:844], 'little') == 18
+          assert b'0.6.7\x00' in b
+          PY
+          (cd /tmp/elmister067/work && zip -q -r /tmp/elmister067/out/El-Mister-v0.6.7-online-unsigned.apk .)
+          unzip -t /tmp/elmister067/out/El-Mister-v0.6.7-online-unsigned.apk
+          unzip -p /tmp/elmister067/out/El-Mister-v0.6.7-online-unsigned.apk assets/index.html | grep -q 'V067_ONLINE_API'
+          sha256sum /tmp/elmister067/out/El-Mister-v0.6.7-online-unsigned.apk | tee /tmp/elmister067/out/sha256.txt
+
+      - name: Commit generated v0.6.7 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v067/index.html
+          git diff --cached --quiet || git commit -m 'Generate El Mister v0.6.7 Online source'
+          git push origin HEAD:el-mister-updates
+
+      - name: Upload verified unsigned candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v067-online-candidate
+          path: |
+            /tmp/elmister067/out/El-Mister-v0.6.7-online-unsigned.apk
+            /tmp/elmister067/out/sha256.txt
+            el-mister/source/v067/index.html
