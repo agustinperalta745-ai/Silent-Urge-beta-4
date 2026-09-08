@@ -1,0 +1,77 @@
+name: Publish El Mister v0.7.2 Safe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v072-safe/trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild v0.7.2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v072
+          cp el-mister/source/v069-index.html /tmp/v072/index.html
+          base64 -d el-mister/release/v072-safe/v072.diff.gz.b64 | gunzip > /tmp/v072/v072.diff
+          patch /tmp/v072/index.html < /tmp/v072/v072.diff
+          echo '1b0d9286adb58558d4b24bfab1e0b9fc8dd628632e119cfe9f31ccb3d258e5bd  /tmp/v072/index.html' | sha256sum -c -
+
+      - name: Assemble APK on known-good v0.6.9 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v072/apk
+          mkdir -p /tmp/v072/apk/assets /tmp/v072/apk/META-INF
+          unzip -p el-mister/El-Mister-v0.6.9.apk AndroidManifest.xml > /tmp/v072/apk/AndroidManifest.xml
+          unzip -p el-mister/El-Mister-v0.6.9.apk classes.dex > /tmp/v072/apk/classes.dex
+          cp /tmp/v072/index.html /tmp/v072/apk/assets/index.html
+          perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/MANIFEST.MF > /tmp/v072/apk/META-INF/MANIFEST.MF
+          perl -pe 's/\n/\r\n/g' el-mister/release/v072-safe/ELMISTER.SF > /tmp/v072/apk/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v072-safe/ELMISTER.RSA.b64 > /tmp/v072/apk/META-INF/ELMISTER.RSA
+          cmp /tmp/v072/apk/AndroidManifest.xml <(unzip -p el-mister/El-Mister-v0.6.9.apk AndroidManifest.xml)
+          cd /tmp/v072/apk
+          zip -q -X /tmp/v072/El-Mister-v0.7.2.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA classes.dex AndroidManifest.xml assets/index.html
+          unzip -t /tmp/v072/El-Mister-v0.7.2.apk
+          jarsigner -verify -verbose -certs /tmp/v072/El-Mister-v0.7.2.apk | grep 'jar verified'
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v072/El-Mister-v0.7.2.apk el-mister/El-Mister-v0.7.2.apk
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.2.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 23,
+            "versionName": "0.7.2",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.2.apk",
+            "mandatory": false,
+            "changes": [
+              "Ligas Online ahora tiene Mis ligas, Crear liga y Unirse a una liga",
+              "Cada liga abre un Centro de Liga con Inicio, Tabla, Partidos, Mi equipo y Gestión",
+              "El administrador puede completar los lugares libres con bots hasta un máximo de 10 participantes",
+              "Amistoso DT vs DT permite elegir cualquiera de los 40 clubes de El Míster y calcula automáticamente la fuerza del equipo",
+              "Amistosos y ligas incorporan preparación de formación, táctica e instrucciones antes de jugar",
+              "Los partidos de liga mantienen reprogramación por propuesta, aceptación, rechazo y contraoferta"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.2.apk el-mister/latest.json
+          git commit -m 'Publish El Mister v0.7.2 online management'
+          git push
