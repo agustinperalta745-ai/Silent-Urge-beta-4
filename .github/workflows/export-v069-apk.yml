@@ -1,0 +1,22 @@
+name: Export El Mister v0.6.9 APK
+on:
+  push:
+    branches: [el-mister-updates]
+    paths: ['el-mister/export-v069-trigger.txt','.github/workflows/export-v069-apk.yml']
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: el-mister-updates}
+      - run: |
+          set -euo pipefail
+          rm -rf el-mister/release/v069-export && mkdir -p el-mister/release/v069-export
+          base64 -w0 el-mister/El-Mister-v0.6.9.apk | split -b 45000 - el-mister/release/v069-export/apk.b64.part.
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v069-export
+          git diff --cached --quiet || git commit -m 'Export v0.6.9 APK for secure local signing flow'
+          git push origin HEAD:el-mister-updates
