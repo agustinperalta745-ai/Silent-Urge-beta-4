@@ -1,0 +1,28 @@
+/* El Míster v0.6.7 · Online 1v1 dentro de la app */
+.bottomNav.v067OnlineNav{grid-template-columns:repeat(6,1fr)}
+.bottomNav.v067OnlineNav .navBtn{font-size:9px;padding-left:2px;padding-right:2px}
+.bottomNav.v067OnlineNav .navBtn .ico{font-size:18px}
+.onlineHero{background:radial-gradient(circle at 80% 0,rgba(243,191,77,.13),transparent 44%),linear-gradient(180deg,#102230,#0b1720)}
+.onlineStatus{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted)}
+.onlineDot{width:8px;height:8px;border-radius:50%;background:#6f7c85;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.onlineDot.on{background:#55d693;box-shadow:0 0 0 3px rgba(85,214,147,.12)}
+.onlineCode{text-align:center;font-size:32px;letter-spacing:.17em;color:var(--gold);font-weight:1000;padding:8px 0 4px}
+.onlineScore{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0 3px}
+.onlineScore strong{font-size:39px;line-height:1}
+.onlineName{width:31%;font-size:11px;font-weight:900;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onlineDirs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:300px;margin:14px auto}
+.onlineDir{height:57px;border:1px solid #2b485a;background:#102430;color:#fff;border-radius:15px;font-size:22px;font-weight:900;transition:.12s transform,.12s border-color,.12s background}
+.onlineDir:active{transform:scale(.96)}
+.onlineDir.selected{border-color:var(--gold);background:rgba(243,191,77,.16);box-shadow:0 0 0 1px rgba(243,191,77,.18) inset}
+.onlineDir:disabled{opacity:.43}
+.onlineDir.blank{visibility:hidden}
+.onlineTiming{position:relative;height:29px;border-radius:999px;background:#09131a;border:1px solid #294354;overflow:hidden;margin:13px 0}
+.onlineTimingZone{position:absolute;left:44%;width:12%;top:0;bottom:0;background:rgba(85,214,147,.52)}
+.onlineNeedle{position:absolute;top:2px;bottom:2px;width:4px;background:#fff;border-radius:4px;left:0;box-shadow:0 0 8px rgba(255,255,255,.45)}
+.onlineKickLog{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.onlineKick{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:#19303d;font-size:10px;font-weight:1000}
+.onlineKick.goal{background:rgba(85,214,147,.2);color:#8ef0b6}
+.onlineKick.saved,.onlineKick.missed{background:rgba(255,109,115,.18);color:#ffb2b6}
+.onlineLocked{padding:11px;border-radius:12px;border:1px solid rgba(100,167,255,.25);background:rgba(100,167,255,.08);font-size:11px;color:#c9ddff;line-height:1.4;text-align:center}
+.onlineError{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,109,115,.25);background:rgba(255,109,115,.08);font-size:10px;color:#ffc2c5;margin-top:10px}
+@media(max-width:380px){.bottomNav.v067OnlineNav .navBtn{font-size:8px}.bottomNav.v067OnlineNav .navBtn .ico{font-size:16px}.onlineName{width:28%}}
