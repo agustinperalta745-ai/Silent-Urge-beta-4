@@ -1,0 +1,20 @@
+name: Extract El Mister v0.6.9 source
+on:
+  push:
+    branches: [el-mister-updates]
+    paths: ['el-mister/extract-v069-trigger.txt','.github/workflows/extract-v069-source.yml']
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: el-mister-updates}
+      - run: |
+          unzip -p el-mister/El-Mister-v0.6.9.apk assets/index.html > el-mister/source/v069-index.html
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v069-index.html
+          git diff --cached --quiet || git commit -m 'Extract El Mister v0.6.9 source'
+          git push origin HEAD:el-mister-updates
