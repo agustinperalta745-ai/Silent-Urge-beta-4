@@ -1,0 +1,110 @@
+name: Publish El Mister v0.7.7
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v077-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.7.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v077
+          mkdir -p /tmp/v077/work/assets /tmp/v077/signature/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
+          patch='\n'.join([
+            Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8'),
+            Path('el-mister/release/v075/v075b.js').read_text(encoding='utf-8'),
+            Path('el-mister/release/v077/v077.js').read_text(encoding='utf-8'),
+          ])
+          src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.7';",1)
+          src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=28;',1)
+          if '</script>' not in src:
+              raise SystemExit('missing closing script')
+          src=src.replace('</script>',patch+'\n</script>',1)
+          Path('/tmp/v077/index.html').write_text(src,encoding='utf-8')
+          js=src[src.index('<script>')+8:src.rindex('</script>')]
+          Path('/tmp/v077/app.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v077/app.js
+          grep -q "const VERSION='0.7.7'" /tmp/v077/index.html
+          grep -q 'const VERSION_CODE=28' /tmp/v077/index.html
+          grep -q 'El Míster v0.7.7' /tmp/v077/index.html
+          grep -q 'aguanta hasta el último instante' /tmp/v077/index.html
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v077/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v077/work/classes.dex
+          cp /tmp/v077/index.html /tmp/v077/work/assets/index.html
+          cd /tmp/v077/work
+          zip -q -r /tmp/v077/El-Mister-v0.7.7.apk .
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v077-signed/MANIFEST.MF.b64 > /tmp/v077/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v077-signed/ELMISTER.SF.b64 > /tmp/v077/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v077-signed/ELMISTER.RSA.b64 > /tmp/v077/signature/META-INF/ELMISTER.RSA
+          echo '465e0c68c9979cca5bdec110f94d48f14a5e9c2edc219f4b3cccd32c0df91731  /tmp/v077/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo 'da3c324d92850879ad9ec315ad51a8414e83efdd0156863fc3fa3ccea04e4b7b  /tmp/v077/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo 'e360c71ca6ecf76ffcf7db7ba99e5945707bff470168fff7bd2782d35405f280  /tmp/v077/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v077/signature
+          zip -q -g -r /tmp/v077/El-Mister-v0.7.7.apk META-INF
+          unzip -t /tmp/v077/El-Mister-v0.7.7.apk
+          jarsigner -verify -verbose -certs /tmp/v077/El-Mister-v0.7.7.apk | tee /tmp/v077/jarverify.txt
+          grep -q 'jar verified' /tmp/v077/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v077/expected.fp
+          keytool -printcert -jarfile /tmp/v077/El-Mister-v0.7.7.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v077/actual.fp
+          test -s /tmp/v077/expected.fp && test -s /tmp/v077/actual.fp
+          diff -u /tmp/v077/expected.fp /tmp/v077/actual.fp
+          unzip -p /tmp/v077/El-Mister-v0.7.7.apk assets/index.html > /tmp/v077/inside.html
+          grep -q "const VERSION='0.7.7'" /tmp/v077/inside.html
+          grep -q 'const VERSION_CODE=28' /tmp/v077/inside.html
+          grep -q 'El Míster v0.7.7' /tmp/v077/inside.html
+          grep -q 'aguanta hasta el último instante' /tmp/v077/inside.html
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v077/El-Mister-v0.7.7.apk el-mister/El-Mister-v0.7.7.apk
+          cp /tmp/v077/index.html el-mister/source/v077-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.7.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 28,
+            "versionName": "0.7.7",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.7.apk",
+            "mandatory": false,
+            "changes": [
+              "Partidos: las resoluciones ahora narran únicamente lo que ocurre dentro de la cancha",
+              "Se eliminaron de los resultados textos técnicos como ganar una mecánica, timing o zonas internas",
+              "Penales, tiros libres, definiciones, centros, contras y atajadas ahora tienen relatos futboleros según lo ocurrido",
+              "Las pantallas previas explican qué hacer sin sacar al jugador del contexto del partido"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.7.apk el-mister/latest.json el-mister/source/v077-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.7 immersive match narration'
+          git push origin HEAD:el-mister-updates
