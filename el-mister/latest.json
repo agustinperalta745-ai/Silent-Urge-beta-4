@@ -1,15 +1,15 @@
 {
-  "versionCode": 24,
-  "versionName": "0.7.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.3.apk",
+  "versionCode": 25,
+  "versionName": "0.7.4",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.4.apk",
   "mandatory": false,
   "changes": [
-    "Corrección de actualización: v0.7.3 ahora instala el APK real y muestra la versión correcta",
-    "Online: cada partido de liga incorpora Jugar ahora y estado de listo por DT",
-    "Crear liga permite comenzar hoy o elegir una fecha de inicio",
-    "El fixture respeta la fecha inicial, los días habilitados y el rango horario configurado"
+    "Cantera: ahora podés buscar ofertas y vender juveniles durante el mercado",
+    "Las ventas de canteranos suman el ingreso al presupuesto y al historial",
+    "Cuarta División: se corrigieron los objetivos y ya no aparece evitar el descenso",
+    "Las carreras existentes en Cuarta corrigen automáticamente ese objetivo"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "d30c6788bff46ca5c2ad0a270bd4c0b211825cd79c260aa1987242f968cbc2ef",
+  "sha256": "50403289dc9a45ab95e5e000a7a48839ff69aa969f177bbcaefca04741453192",
   "migration": true
 }
