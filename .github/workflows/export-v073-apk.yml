@@ -1,0 +1,26 @@
+name: Export El Mister v0.7.3 APK
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/export-v073-trigger.txt'
+      - '.github/workflows/export-v073-apk.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Verify current APK
+        run: |
+          set -euo pipefail
+          test -f el-mister/El-Mister-v0.7.3.apk
+          unzip -t el-mister/El-Mister-v0.7.3.apk
+          jarsigner -verify el-mister/El-Mister-v0.7.3.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v073-current
+          path: el-mister/El-Mister-v0.7.3.apk
