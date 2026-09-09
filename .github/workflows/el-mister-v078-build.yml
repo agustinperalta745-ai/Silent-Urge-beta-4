@@ -1,0 +1,72 @@
+name: Build El Mister v0.7.8 unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v078/**'
+      - '.github/workflows/el-mister-v078-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble v0.7.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v078/work/assets
+          cat el-mister/release/v078/part00.js \
+              el-mister/release/v078/part01.js \
+              el-mister/release/v078/part02.js \
+              el-mister/release/v078/part03.js > /tmp/v078/patch.js
+          node --check /tmp/v078/patch.js
+          cp el-mister/source/v077-index.html /tmp/v078/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v078/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.7';" not in s or 'const VERSION_CODE=28;' not in s:
+              raise SystemExit('v0.7.7 base version markers not found')
+          s=s.replace("const VERSION='0.7.7';", "const VERSION='0.7.8';", 1)
+          s=s.replace('const VERSION_CODE=28;', 'const VERSION_CODE=29;', 1)
+          patch=Path('/tmp/v078/patch.js').read_text(encoding='utf-8')
+          if '</script>' not in s:
+              raise SystemExit('closing script tag not found')
+          head,tail=s.rsplit('</script>',1)
+          p.write_text(head+'\n'+patch+'\n</script>'+tail, encoding='utf-8')
+          PY
+          grep -q "const VERSION='0.7.8'" /tmp/v078/index.html
+          grep -q 'const VERSION_CODE=29' /tmp/v078/index.html
+          grep -q 'Saltar mercado' /tmp/v078/index.html
+          grep -q 'ANTES DE JUGAR' /tmp/v078/index.html
+          grep -q 'Promoción ascenso' /tmp/v078/index.html
+          grep -q 'V078_PRIZES' /tmp/v078/index.html
+
+      - name: Build unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v078/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v078/work/classes.dex
+          cp /tmp/v078/index.html /tmp/v078/work/assets/index.html
+          cd /tmp/v078/work
+          zip -q -r /tmp/v078/El-Mister-v0.7.8-unsigned.apk .
+          unzip -t /tmp/v078/El-Mister-v0.7.8-unsigned.apk >/dev/null
+
+      - name: Upload unsigned build
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v078-unsigned
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            /tmp/v078/El-Mister-v0.7.8-unsigned.apk
+            /tmp/v078/index.html
+            /tmp/v078/patch.js
