@@ -1,0 +1,41 @@
+name: Extract El Mister v0.7.4 source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v074-extract.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Extract current v0.7.4 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p el-mister/source
+          unzip -p el-mister/El-Mister-v0.7.4.apk assets/index.html > el-mister/source/v074-index.html
+          unzip -p el-mister/El-Mister-v0.7.4.apk AndroidManifest.xml | base64 -w0 > el-mister/source/v074-AndroidManifest.xml.b64
+          unzip -p el-mister/El-Mister-v0.7.4.apk classes.dex | base64 -w0 > el-mister/source/v074-classes.dex.b64
+          grep -q "const VERSION='0.7.4'" el-mister/source/v074-index.html
+          grep -q 'const VERSION_CODE=25' el-mister/source/v074-index.html
+
+      - name: Commit extracted source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v074-index.html el-mister/source/v074-AndroidManifest.xml.b64 el-mister/source/v074-classes.dex.b64
+          git diff --cached --quiet || git commit -m 'Extract El Mister v0.7.4 source payload'
+          git push origin HEAD:el-mister-updates
