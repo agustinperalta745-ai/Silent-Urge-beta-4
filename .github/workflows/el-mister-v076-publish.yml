@@ -1,0 +1,111 @@
+name: Publish El Mister v0.7.6
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v076-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.7.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v076
+          mkdir -p /tmp/v076/work/assets /tmp/v076/signature/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
+          patch=Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8')+'\n'+Path('el-mister/release/v075/v075b.js').read_text(encoding='utf-8')
+          src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.6';",1)
+          src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=27;',1)
+          if '</script>' not in src:
+              raise SystemExit('missing closing script')
+          src=src.replace('</script>',patch+'\n</script>',1)
+          Path('/tmp/v076/index.html').write_text(src,encoding='utf-8')
+          js=src[src.index('<script>')+8:src.rindex('</script>')]
+          Path('/tmp/v076/app.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v076/app.js
+          grep -q "const VERSION='0.7.6'" /tmp/v076/index.html
+          grep -q 'const VERSION_CODE=27' /tmp/v076/index.html
+          grep -q 'v075SwapStarters' /tmp/v076/index.html
+          grep -q 'Minijuego ganado' /tmp/v076/index.html
+          grep -q 'v075ApplySeasonDevelopment' /tmp/v076/index.html
+          grep -q 'MERCADO DE PASES · FIN DE TEMPORADA' /tmp/v076/index.html
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v076/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v076/work/classes.dex
+          cp /tmp/v076/index.html /tmp/v076/work/assets/index.html
+          cd /tmp/v076/work
+          zip -q -r /tmp/v076/El-Mister-v0.7.6.apk .
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v076-signed/MANIFEST.MF.b64 > /tmp/v076/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v076-signed/ELMISTER.SF.b64 > /tmp/v076/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v076-signed/ELMISTER.RSA.b64 > /tmp/v076/signature/META-INF/ELMISTER.RSA
+          echo 'd326b2ec2805787616bb2ba299ddf3835942f7fecfb3cb888edc9649f94cc371  /tmp/v076/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '33d0a532434245358a5a297a6177b18c61cd0c3e6fafb08078b4e7b9cbd47632  /tmp/v076/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo 'b4b50b76fd18b1b53bc589b953ca1476840c21c386ac1cb9d5de5e119c15af34  /tmp/v076/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v076/signature
+          zip -q -g -r /tmp/v076/El-Mister-v0.7.6.apk META-INF
+          unzip -t /tmp/v076/El-Mister-v0.7.6.apk
+          jarsigner -verify -verbose -certs /tmp/v076/El-Mister-v0.7.6.apk | tee /tmp/v076/jarverify.txt
+          grep -q 'jar verified' /tmp/v076/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v076/expected.fp
+          keytool -printcert -jarfile /tmp/v076/El-Mister-v0.7.6.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v076/actual.fp
+          test -s /tmp/v076/expected.fp && test -s /tmp/v076/actual.fp
+          diff -u /tmp/v076/expected.fp /tmp/v076/actual.fp
+          unzip -p /tmp/v076/El-Mister-v0.7.6.apk assets/index.html > /tmp/v076/inside.html
+          grep -q "const VERSION='0.7.6'" /tmp/v076/inside.html
+          grep -q 'const VERSION_CODE=27' /tmp/v076/inside.html
+          grep -q 'v075SwapStarters' /tmp/v076/inside.html
+          grep -q 'Minijuego ganado' /tmp/v076/inside.html
+          grep -q 'v075ApplySeasonDevelopment' /tmp/v076/inside.html
+          grep -q 'MERCADO DE PASES · FIN DE TEMPORADA' /tmp/v076/inside.html
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v076/El-Mister-v0.7.6.apk el-mister/El-Mister-v0.7.6.apk
+          cp /tmp/v076/index.html el-mister/source/v076-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.6.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 27,
+            "versionName": "0.7.6",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.6.apk",
+            "mandatory": false,
+            "changes": [
+              "Plantel: la posición del casillero se respeta al mover un jugador y podés intercambiar dos titulares directamente, incluso arrastrando",
+              "Minijuegos: si ganás el minijuego, ganás la acción; una tirada oculta ya no puede revertir el resultado",
+              "Desarrollo: la evolución entre temporadas ahora se nota más en jóvenes y jugadores con minutos, rendimiento y potencial, sin inflar a todo el plantel",
+              "Mercado: la ventana regular fue reemplazada por 7 días simulados al finalizar cada temporada",
+              "Mercado: hay respuestas demoradas, contraofertas, propuestas por tus jugadores, cierre en el día 7 y resumen final"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.6.apk el-mister/latest.json el-mister/source/v076-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.6 complete gameplay development and market update'
+          git push origin HEAD:el-mister-updates
