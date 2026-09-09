@@ -1,0 +1,61 @@
+name: Build El Mister v0.7.7 unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v077-unsigned.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Build unsigned v0.7.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v077
+          mkdir -p /tmp/v077/work/assets
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
+          patch='\n'.join([
+            Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8'),
+            Path('el-mister/release/v075/v075b.js').read_text(encoding='utf-8'),
+            Path('el-mister/release/v077/v077.js').read_text(encoding='utf-8'),
+          ])
+          src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.7';",1)
+          src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=28;',1)
+          src=src.replace('</script>',patch+'\n</script>',1)
+          Path('/tmp/v077/index.html').write_text(src,encoding='utf-8')
+          js=src[src.index('<script>')+8:src.rindex('</script>')]
+          Path('/tmp/v077/app.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v077/app.js
+          grep -q "const VERSION='0.7.7'" /tmp/v077/index.html
+          grep -q 'const VERSION_CODE=28' /tmp/v077/index.html
+          grep -q 'El Míster v0.7.7' /tmp/v077/index.html
+          grep -q 'aguanta hasta el último instante' /tmp/v077/index.html
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v077/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v077/work/classes.dex
+          cp /tmp/v077/index.html /tmp/v077/work/assets/index.html
+          cd /tmp/v077/work
+          zip -q -r /tmp/v077/El-Mister-v0.7.7-unsigned.apk .
+          unzip -t /tmp/v077/El-Mister-v0.7.7-unsigned.apk
+
+      - name: Upload unsigned candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v077-unsigned
+          path: /tmp/v077/El-Mister-v0.7.7-unsigned.apk
+          if-no-files-found: error
+          retention-days: 1
