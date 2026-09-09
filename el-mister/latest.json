@@ -1,15 +1,16 @@
 {
-  "versionCode": 28,
-  "versionName": "0.7.7",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.7.apk",
+  "versionCode": 29,
+  "versionName": "0.7.8",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.8.apk",
   "mandatory": false,
   "changes": [
-    "Partidos: las resoluciones ahora narran únicamente lo que ocurre dentro de la cancha",
-    "Se eliminaron de los resultados textos técnicos como ganar una mecánica, timing o zonas internas",
-    "Penales, tiros libres, definiciones, centros, contras y atajadas ahora tienen relatos futboleros según lo ocurrido",
-    "Las pantallas previas explican qué hacer sin sacar al jugador del contexto del partido"
+    "Pirámide corregida: ascensos directos, Promociones, descensos y copas por puesto según cada división",
+    "La Promoción ahora se juega en un partido único intenso entre el 3.º de abajo y el 8.º de arriba",
+    "Premios económicos añadidos para copas, ascensos directos y ascensos por Promoción",
+    "Mercado de 7 días: podés usar el resto del club, ver la plantilla, hacer otra búsqueda o saltar toda la ventana",
+    "Cada minijuego muestra una tarjeta previa separada que explica la situación, qué hacer y el objetivo"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "9b498098316cf3374cbea074a95f2b051b686a0e05b389ab3fc0ad6ae9e36073",
+  "sha256": "b4ab13be1546e42ebcfcdca5f8b74049b8440a1857acb637d21533dba9a227ca",
   "migration": true
 }
