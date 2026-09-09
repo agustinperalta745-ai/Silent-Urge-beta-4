@@ -28,7 +28,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
-          patch=Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8')
+          patch=Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8')+'\n'+Path('el-mister/release/v075/v075b.js').read_text(encoding='utf-8')
           src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.5';",1)
           src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=26;',1)
           if '</script>' not in src:
@@ -43,6 +43,8 @@ jobs:
           grep -q 'const VERSION_CODE=26' /tmp/v075/index.html
           grep -q 'v075SwapStarters' /tmp/v075/index.html
           grep -q 'Minijuego ganado' /tmp/v075/index.html
+          grep -q 'Día ${m.day} de 7' /tmp/v075/index.html
+          grep -q 'v075ApplySeasonDevelopment' /tmp/v075/index.html
           base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v075/work/AndroidManifest.xml
           base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v075/work/classes.dex
           cp /tmp/v075/index.html /tmp/v075/work/assets/index.html
