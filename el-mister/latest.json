@@ -1,16 +1,15 @@
 {
-  "versionCode": 27,
-  "versionName": "0.7.6",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.6.apk",
+  "versionCode": 28,
+  "versionName": "0.7.7",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.7.apk",
   "mandatory": false,
   "changes": [
-    "Plantel: la posición del casillero se respeta al mover un jugador y podés intercambiar dos titulares directamente, incluso arrastrando",
-    "Minijuegos: si ganás el minijuego, ganás la acción; una tirada oculta ya no puede revertir el resultado",
-    "Desarrollo: la evolución entre temporadas ahora se nota más en jóvenes y jugadores con minutos, rendimiento y potencial, sin inflar a todo el plantel",
-    "Mercado: la ventana regular fue reemplazada por 7 días simulados al finalizar cada temporada",
-    "Mercado: hay respuestas demoradas, contraofertas, propuestas por tus jugadores, cierre en el día 7 y resumen final"
+    "Partidos: las resoluciones ahora narran únicamente lo que ocurre dentro de la cancha",
+    "Se eliminaron de los resultados textos técnicos como ganar una mecánica, timing o zonas internas",
+    "Penales, tiros libres, definiciones, centros, contras y atajadas ahora tienen relatos futboleros según lo ocurrido",
+    "Las pantallas previas explican qué hacer sin sacar al jugador del contexto del partido"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "47c603608f73752b273f419dafb6f05ae9e1dd8c75544598ccbd331aafa3c86f",
+  "sha256": "9b498098316cf3374cbea074a95f2b051b686a0e05b389ab3fc0ad6ae9e36073",
   "migration": true
 }
