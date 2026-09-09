@@ -1,0 +1,102 @@
+name: Publish El Mister v0.7.5
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v075-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.7.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v075
+          mkdir -p /tmp/v075/work/assets /tmp/v075/signature/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
+          patch=Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8')
+          src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.5';",1)
+          src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=26;',1)
+          if '</script>' not in src:
+              raise SystemExit('missing closing script')
+          src=src.replace('</script>',patch+'\n</script>',1)
+          Path('/tmp/v075/index.html').write_text(src,encoding='utf-8')
+          js=src[src.index('<script>')+8:src.rindex('</script>')]
+          Path('/tmp/v075/app.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v075/app.js
+          grep -q "const VERSION='0.7.5'" /tmp/v075/index.html
+          grep -q 'const VERSION_CODE=26' /tmp/v075/index.html
+          grep -q 'v075SwapStarters' /tmp/v075/index.html
+          grep -q 'Minijuego ganado' /tmp/v075/index.html
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v075/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v075/work/classes.dex
+          cp /tmp/v075/index.html /tmp/v075/work/assets/index.html
+          cd /tmp/v075/work
+          zip -q -r /tmp/v075/El-Mister-v0.7.5.apk .
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v075-signed/MANIFEST.MF.b64 > /tmp/v075/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v075-signed/ELMISTER.SF.b64 > /tmp/v075/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v075-signed/ELMISTER.RSA.b64 > /tmp/v075/signature/META-INF/ELMISTER.RSA
+          cd /tmp/v075/signature
+          zip -q -g -r /tmp/v075/El-Mister-v0.7.5.apk META-INF
+          unzip -t /tmp/v075/El-Mister-v0.7.5.apk
+          jarsigner -verify -verbose -certs /tmp/v075/El-Mister-v0.7.5.apk | tee /tmp/v075/jarverify.txt
+          grep -q 'jar verified' /tmp/v075/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v075/expected.fp
+          keytool -printcert -jarfile /tmp/v075/El-Mister-v0.7.5.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v075/actual.fp
+          test -s /tmp/v075/expected.fp && test -s /tmp/v075/actual.fp
+          diff -u /tmp/v075/expected.fp /tmp/v075/actual.fp
+          unzip -p /tmp/v075/El-Mister-v0.7.5.apk assets/index.html | grep -q "const VERSION='0.7.5'"
+          unzip -p /tmp/v075/El-Mister-v0.7.5.apk assets/index.html | grep -q 'const VERSION_CODE=26'
+          unzip -p /tmp/v075/El-Mister-v0.7.5.apk assets/index.html | grep -q 'v075SwapStarters'
+          unzip -p /tmp/v075/El-Mister-v0.7.5.apk assets/index.html | grep -q 'Minijuego ganado'
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v075/El-Mister-v0.7.5.apk el-mister/El-Mister-v0.7.5.apk
+          cp /tmp/v075/index.html el-mister/source/v075-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.5.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 26,
+            "versionName": "0.7.5",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.5.apk",
+            "mandatory": false,
+            "changes": [
+              "Plantel: la posición del casillero se respeta al mover un jugador (LD, LI, DFC, etc.)",
+              "Plantel: ahora podés intercambiar directamente dos titulares arrastrando uno sobre otro",
+              "Minijuegos: si ganás el minijuego, ganás la acción; ya no hay una tirada oculta posterior"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          rm -rf el-mister/release/v075/upload
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A el-mister/El-Mister-v0.7.5.apk el-mister/latest.json el-mister/source/v075-index.html el-mister/release/v075/upload
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.5 lineup and minigame fixes'
+          git push origin HEAD:el-mister-updates
