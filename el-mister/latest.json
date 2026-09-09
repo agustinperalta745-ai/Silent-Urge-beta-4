@@ -1,15 +1,14 @@
 {
-  "versionCode": 25,
-  "versionName": "0.7.4",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.4.apk",
+  "versionCode": 26,
+  "versionName": "0.7.5",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.5.apk",
   "mandatory": false,
   "changes": [
-    "Cantera: ahora podés buscar ofertas y vender juveniles durante el mercado",
-    "Las ventas de canteranos suman el ingreso al presupuesto y al historial",
-    "Cuarta División: se corrigieron los objetivos y ya no aparece evitar el descenso",
-    "Las carreras existentes en Cuarta corrigen automáticamente ese objetivo"
+    "Plantel: la posición del casillero se respeta al mover un jugador (LD, LI, DFC, etc.)",
+    "Plantel: ahora podés intercambiar directamente dos titulares arrastrando uno sobre otro",
+    "Minijuegos: si ganás el minijuego, ganás la acción; ya no hay una tirada oculta posterior"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "50403289dc9a45ab95e5e000a7a48839ff69aa969f177bbcaefca04741453192",
+  "sha256": "9c823bb8c911ea377f25cbca3e79aadd7f74ea9d12a245682a968f7ac4067cc9",
   "migration": true
 }
