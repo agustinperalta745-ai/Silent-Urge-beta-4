@@ -25,122 +25,17 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/v075
           mkdir -p /tmp/v075/work/assets
-          cp el-mister/source/v074-index.html /tmp/v075/index.html
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('/tmp/v075/index.html')
-          s=p.read_text(encoding='utf-8')
-          s=s.replace("const VERSION='0.7.4';","const VERSION='0.7.5';",1)
-          s=s.replace('const VERSION_CODE=25;','const VERSION_CODE=26;',1)
-          patch=r'''
-
-/* ===== El Míster v0.7.5 · posiciones explícitas, intercambio directo y minijuegos deterministas ===== */
-let _v075Dragging=null;
-let _v075SuppressClickUntil=0;
-const _v075AssignedLineupBase=assignedLineup;
-
-function v075MigrateLineupSlotOrder(){
- if(!S||S.v075SlotOrder)return;
- let shown=_v075AssignedLineupBase();
- if(shown?.length)S.lineupIds=shown.map(x=>x.p.id);
- S.v075SlotOrder=true;save()
-}
-
-assignedLineup=function(){
- v075MigrateLineupSlotOrder();
- let slots=FORMATION_SLOTS[S.formation]||FORMATION_SLOTS['4-2-3-1'],ids=ensureLineup();
- return slots.map((slot,i)=>({slot,p:S.roster.find(p=>p.id===ids[i])})).filter(x=>x.p)
-};
-
-function v075ReorderForFormation(){
- let slots=FORMATION_SLOTS[S.formation]||FORMATION_SLOTS['4-2-3-1'];
- let pool=ensureLineup().map(id=>S.roster.find(p=>p.id===id)).filter(Boolean),used=new Set(),ordered=[];
- for(let slot of slots){let cand=pool.filter(p=>!used.has(p.id)).sort((a,b)=>(positionalFit(b,slot.pos)+b.ovr)-(positionalFit(a,slot.pos)+a.ovr))[0];if(cand){used.add(cand.id);ordered.push(cand.id)}}
- for(let p of pool)if(!used.has(p.id))ordered.push(p.id);
- S.lineupIds=ordered.slice(0,11);S.v075SlotOrder=true;save()
-}
-
-cycleFormation=function(dir){
- let forms=['4-2-3-1','4-3-3','4-4-2'],cur=S.formation||'4-2-3-1',i=forms.indexOf(cur);i=(i+dir+forms.length)%forms.length;
- S.formation=forms[i];formation=S.formation;v075ReorderForFormation();selectedStarterId=null;save();render()
-};
-
-function v075SwapStarters(a,b){
- v075MigrateLineupSlotOrder();let ids=ensureLineup(),ia=ids.indexOf(a),ib=ids.indexOf(b);if(ia<0||ib<0||ia===ib)return false;
- [ids[ia],ids[ib]]=[ids[ib],ids[ia]];S.lineupIds=ids;S.v075SlotOrder=true;save();return true
-}
-
-selectStarter=function(id){
- if(Date.now()<_v075SuppressClickUntil)return;
- v075MigrateLineupSlotOrder();
- if(selectedStarterId&&selectedStarterId!==id&&v075SwapStarters(selectedStarterId,id)){selectedStarterId=null;render();toast('Posiciones intercambiadas.');return}
- selectedStarterId=selectedStarterId===id?null:id;render()
-};
-
-function v075DragCleanup(){
- let d=_v075Dragging;if(!d)return;
- document.removeEventListener('pointermove',d.move);
- document.removeEventListener('pointerup',d.up);
- document.removeEventListener('pointercancel',d.up);
- d.el?.classList.remove('dragging');
- document.querySelectorAll('.pitchPlayer.dragTarget').forEach(x=>x.classList.remove('dragTarget'));
- _v075Dragging=null
-}
-function v075DragStart(ev,id){
- if(ev.pointerType==='mouse'&&ev.button!==0)return;
- v075MigrateLineupSlotOrder();let el=ev.currentTarget,startX=ev.clientX,startY=ev.clientY,d={id,el,startX,startY,moved:false};
- d.move=function(e){if(!_v075Dragging||e.pointerId!==ev.pointerId)return;let dx=e.clientX-startX,dy=e.clientY-startY;if(Math.hypot(dx,dy)>8){d.moved=true;e.preventDefault();el.classList.add('dragging');document.querySelectorAll('.pitchPlayer.dragTarget').forEach(x=>x.classList.remove('dragTarget'));let t=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('.pitchPlayer');if(t&&t!==el)t.classList.add('dragTarget')}};
- d.up=function(e){if(!_v075Dragging||e.pointerId!==ev.pointerId)return;let moved=d.moved,target=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('.pitchPlayer'),targetId=target?.dataset?.playerId;v075DragCleanup();if(moved){_v075SuppressClickUntil=Date.now()+450;e.preventDefault();if(targetId&&targetId!==id&&v075SwapStarters(id,targetId)){selectedStarterId=null;render();toast('Posiciones intercambiadas.')}}};
- _v075Dragging=d;document.addEventListener('pointermove',d.move,{passive:false});document.addEventListener('pointerup',d.up);document.addEventListener('pointercancel',d.up)
-}
-
-const _v075RenderFirstTeamHtmlBase=renderFirstTeamHtml;
-renderFirstTeamHtml=function(){
- v075MigrateLineupSlotOrder();let html=_v075RenderFirstTeamHtmlBase();
- html=html.replace(/<button class="pitchPlayer ([^"]*)" style="([^"]*)" onclick="selectStarter\('([^']+)'\)">/g,(m,cls,style,id)=>`<button class="pitchPlayer ${cls}" data-player-id="${id}" style="${style}" onpointerdown="v075DragStart(event,'${id}')" onclick="selectStarter('${id}')">`);
- html=html.replace('Tocá un titular en la cancha y después <b>Cambiar</b> en un suplente.','Arrastrá un titular sobre otro para intercambiarlos. También podés tocar dos titulares.');
- html=html.replace(/Seleccionaste a <b>(.*?)<\/b>\. Tocá <b>Cambiar<\/b> en un suplente\./,'Seleccionaste a <b>$1</b>. Tocá otro titular para intercambiar posiciones o <b>Cambiar</b> en un suplente.');
- return html
-};
-
-(function(){let st=document.createElement('style');st.textContent='.pitchPlayer{touch-action:none}.pitchPlayer.dragging{transform:translate(-50%,-50%) scale(1.08);z-index:8;opacity:.82}.pitchPlayer.dragTarget{outline:2px solid var(--gold);outline-offset:3px}';document.head.appendChild(st)})();
-
-/* Ganar el minijuego define el resultado: la dificultad se calcula antes, nunca revierte una victoria. */
-v06StopSkillGame=function(){
- let g=_v06SkillGame;if(!g||g.stopped)return;g.stopped=true;let l=S.live,p=S.roster.find(x=>x.id===g.pid),d=g.diff||v062Difficulty(p,g.kind),dist=Math.abs(g.pos-g.center),inside=dist<=g.width/2,success=inside,feedback,title,icon;
- if(success){teamGoal(S.clubId,l.minute,g.kind==='penalty'?'penal':g.kind==='freekick'?'tiro libre':'mano a mano');title='¡GOL!';icon='⚽';feedback=`${p.name} gana el minijuego y resuelve la acción.`}else{title=g.kind==='penalty'?pick(['ATAJÓ','AFUERA','AL PALO']):pick(['ATAJÓ','AFUERA','LA CORTARON']);icon='❌';feedback=`${p.name} queda fuera de la zona correcta y la ocasión no termina bien.`}
- v062FinishMiniDecision(success,title,icon,feedback,[inside?'Minijuego ganado · zona verde':'Minijuego perdido · fuera de zona',`Habilidad ${d.skill} · Partido ${d.quality}`],g.choice)
-};
-
-v062ChooseLane=function(i){
- let g=_v062LaneGame;if(!g||g.done)return;g.done=true;if(_v062LaneTimer){clearInterval(_v062LaneTimer);_v062LaneTimer=null}let l=S.live,p=S.roster.find(x=>x.id===g.pid),read=i===g.open,success=read,feedback,title,icon;
- if(success){teamGoal(S.clubId,l.minute,'contraataque');title='¡GOL!';icon='⚽';feedback=`${p.name} detecta la línea libre y la jugada termina adentro.`}else{title='PASE INTERCEPTADO';icon='🧱';feedback='Elegiste una línea que el defensor ya había cerrado.'}
- v062FinishMiniDecision(success,title,icon,feedback,[read?'Minijuego ganado · línea libre':'Minijuego perdido · línea cerrada',`Habilidad ${g.diff.skill}`,`Dificultad ${v062DifficultyLabel(g.diff.difficulty)}`],g.choice)
-};
-
-v062ChooseMemory=function(i){
- let g=_v062MemoryGame;if(!g||g.done||!g.hidden)return;g.done=true;let l=S.live,p=S.roster.find(x=>x.id===g.pid),hit=i===g.target,success=hit,feedback,title,icon;
- if(success){teamGoal(S.clubId,l.minute,g.source==='freekick_cross'?'tiro libre':'córner');title='¡GOL!';icon='⚽';feedback='Recordaste la zona correcta y el envío termina en gol.'}else{title='CENTRO IMPRECISO';icon='🧱';feedback='No repetiste la zona marcada y el rival despeja.'}
- v062FinishMiniDecision(success,title,icon,feedback,[hit?'Minijuego ganado · zona recordada':'Minijuego perdido · zona equivocada',`Habilidad de centro ${g.diff.skill}`,`Partido ${g.diff.quality}`],g.choice)
-};
-
-v062ResolveKeeper=function(correct,late=false){
- let g=_v062KeeperGame;if(!g||g.done)return;g.done=true;if(_v062KeeperTimer){clearTimeout(_v062KeeperTimer);_v062KeeperTimer=null}let l=S.live,p=S.roster.find(x=>x.id===g.pid),saved=!!correct&&!late,feedback,title,icon;
- if(saved){title='¡ATAJÓ!';icon='🧤';feedback=`${p.name} lee el remate: ganaste el minijuego y salva la jugada.`}else{teamGoal(l.opponent,l.minute,'mano a mano');title='GOL RIVAL';icon='🥅';feedback=late?'La reacción llega tarde y el delantero convierte.':'Elegiste el sector equivocado y el delantero convierte.'}
- v062FinishMiniDecision(saved,title,icon,feedback,[saved?'Minijuego ganado · reacción correcta':late?'Minijuego perdido · fuera de tiempo':'Minijuego perdido · sector equivocado',`Arquero ${g.diff.skill}`,`Dificultad ${v062DifficultyLabel(g.diff.difficulty)}`],g.choice,saved)
-};
-
-v067StopShot=function(){
- let g=_v067ShotGame;if(!g||g.stopped)return;g.stopped=true;let p=S.roster.find(x=>x.id===g.pid),l=S.live,d=g.diff,dist=Math.abs(g.pos-g.center),inside=dist<=g.width/2,perfect=dist<=g.width*.18,hard=(g.type==='long'||g.type==='volley'),goal=inside,title,icon,feedback;
- if(goal){teamGoal(S.clubId,l.minute,hard?'golazo':'remate');let golazo=hard&&perfect;title=golazo?'¡GOLAZO!':'¡GOL!';icon='⚽';feedback=golazo?`${p.name} clava un remate perfecto.`:`${p.name} gana el minijuego y define la jugada.`}else{title=pick(['AFUERA','BLOQUEADO','ATAJÓ']);icon='❌';feedback=`${p.name} queda fuera de la zona correcta y el remate no entra.`}
- v062FinishMiniDecision(goal,title,icon,feedback,[inside?'Minijuego ganado · timing correcto':'Minijuego perdido · timing impreciso',`Habilidad ${d.skill}`,`Presión ${d.importance}`],g.choice)
-};
-'''
-          if '</script>' not in s:
+          src=Path('el-mister/source/v074-index.html').read_text(encoding='utf-8')
+          patch=Path('el-mister/release/v075/v075.js').read_text(encoding='utf-8')
+          src=src.replace("const VERSION='0.7.4';","const VERSION='0.7.5';",1)
+          src=src.replace('const VERSION_CODE=25;','const VERSION_CODE=26;',1)
+          if '</script>' not in src:
               raise SystemExit('missing closing script')
-          s=s.replace('</script>',patch+'\n</script>',1)
-          p.write_text(s,encoding='utf-8')
-          js=s[s.index('<script>')+8:s.rindex('</script>')]
+          src=src.replace('</script>',patch+'\n</script>',1)
+          Path('/tmp/v075/index.html').write_text(src,encoding='utf-8')
+          js=src[src.index('<script>')+8:src.rindex('</script>')]
           Path('/tmp/v075/app.js').write_text(js,encoding='utf-8')
           PY
           node --check /tmp/v075/app.js
