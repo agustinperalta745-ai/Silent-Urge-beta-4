@@ -1,0 +1,98 @@
+name: Publish El Mister v0.7.4
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v074-publish.yml'
+      - 'el-mister/release/v074-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Build v0.7.4 from current signed v0.7.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v074
+          mkdir -p /tmp/v074/work /tmp/v074/signature/META-INF
+          unzip -q el-mister/El-Mister-v0.7.3.apk -d /tmp/v074/work
+          unzip -p el-mister/El-Mister-v0.7.3.apk assets/index.html > /tmp/v074/v073.html
+          cp /tmp/v074/v073.html /tmp/v074/v074.html
+          patch /tmp/v074/v074.html < el-mister/release/v074-signed/v074.diff
+          grep -q "const VERSION='0.7.4'" /tmp/v074/v074.html
+          grep -q 'const VERSION_CODE=25' /tmp/v074/v074.html
+          grep -q 'v074FindAcademyBuyer' /tmp/v074/v074.html
+          grep -q 'v074RepairFourthDivisionObjective' /tmp/v074/v074.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/v074/v074.html').read_text(encoding='utf-8')
+          js=s[s.index('<script>')+8:s.rindex('</script>')]
+          Path('/tmp/v074/app.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v074/app.js
+          rm -rf /tmp/v074/work/META-INF
+          cp /tmp/v074/v074.html /tmp/v074/work/assets/index.html
+
+      - name: Attach original release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v074-signed/MANIFEST.MF.b64 > /tmp/v074/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v074-signed/ELMISTER.SF.b64 > /tmp/v074/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v074-signed/ELMISTER.RSA.b64 > /tmp/v074/signature/META-INF/ELMISTER.RSA
+          echo 'a36f80c60c773dc25b3519c7a9fda1181bc1c0da2ac46bb10caab7379b9f462f  /tmp/v074/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '40b82a92a0af103b66ac02d0563d3dc0740e0fe527e276823fb9e9bba05b720b  /tmp/v074/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '3de559740b49811d720f0c38ef7b64891958674bdba40121bd341e7a9174b7a2  /tmp/v074/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v074/work
+          zip -q -r /tmp/v074/El-Mister-v0.7.4.apk .
+          cd /tmp/v074/signature
+          zip -q -g -r /tmp/v074/El-Mister-v0.7.4.apk META-INF
+          unzip -t /tmp/v074/El-Mister-v0.7.4.apk
+          jarsigner -verify -verbose -certs /tmp/v074/El-Mister-v0.7.4.apk | tee /tmp/v074/jarverify.txt
+          grep -q 'jar verified' /tmp/v074/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v074/expected.fp
+          keytool -printcert -jarfile /tmp/v074/El-Mister-v0.7.4.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v074/actual.fp
+          test -s /tmp/v074/expected.fp && test -s /tmp/v074/actual.fp
+          diff -u /tmp/v074/expected.fp /tmp/v074/actual.fp
+          unzip -p /tmp/v074/El-Mister-v0.7.4.apk assets/index.html | grep -q "const VERSION='0.7.4'"
+          unzip -p /tmp/v074/El-Mister-v0.7.4.apk assets/index.html | grep -q 'const VERSION_CODE=25'
+          cp /tmp/v074/El-Mister-v0.7.4.apk "$GITHUB_WORKSPACE/el-mister/El-Mister-v0.7.4.apk"
+
+      - name: Publish APK and updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.4.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 25,
+            "versionName": "0.7.4",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.4.apk",
+            "mandatory": false,
+            "changes": [
+              "Cantera: ahora podés buscar ofertas y vender juveniles durante el mercado",
+              "Las ventas de canteranos suman el ingreso al presupuesto y al historial",
+              "Cuarta División: se corrigieron los objetivos y ya no aparece evitar el descenso",
+              "Las carreras existentes en Cuarta corrigen automáticamente ese objetivo"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.4.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.4 youth market and Fourth Division fix'
+          git push origin HEAD:el-mister-updates
