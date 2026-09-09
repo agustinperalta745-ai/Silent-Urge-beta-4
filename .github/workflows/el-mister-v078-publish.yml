@@ -1,0 +1,125 @@
+name: Publish El Mister v0.7.8
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v078-publish.yml'
+      - 'el-mister/release/v078-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble v0.7.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v078/work/assets /tmp/v078/signature/META-INF
+          cat el-mister/release/v078/part00.js \
+              el-mister/release/v078/part01.js \
+              el-mister/release/v078/part02.js \
+              el-mister/release/v078/part03.js > /tmp/v078/patch.js
+          node --check /tmp/v078/patch.js
+          cp el-mister/source/v077-index.html /tmp/v078/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v078/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.7';" not in s or 'const VERSION_CODE=28;' not in s:
+              raise SystemExit('v0.7.7 base version markers not found')
+          s=s.replace("const VERSION='0.7.7';", "const VERSION='0.7.8';", 1)
+          s=s.replace('const VERSION_CODE=28;', 'const VERSION_CODE=29;', 1)
+          patch=Path('/tmp/v078/patch.js').read_text(encoding='utf-8')
+          if '</script>' not in s:
+              raise SystemExit('closing script tag not found')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s, encoding='utf-8')
+          if '<script>' in s:
+              js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+              Path('/tmp/v078/full-script.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v078/full-script.js
+          grep -q "const VERSION='0.7.8'" /tmp/v078/index.html
+          grep -q 'const VERSION_CODE=29' /tmp/v078/index.html
+          grep -q "pos<=2.*Ascenso directo" /tmp/v078/patch.js
+          grep -q "pos===3.*Promoción ascenso" /tmp/v078/patch.js
+          grep -q 'Copa Nacional · Promoción' /tmp/v078/patch.js
+          grep -q 'Copa Ascenso' /tmp/v078/patch.js
+          grep -q 'directPromotion:3' /tmp/v078/patch.js
+          grep -q 'promotionPlayoff:2' /tmp/v078/patch.js
+          grep -q 'Saltar mercado' /tmp/v078/patch.js
+          grep -q 'Ver plantilla' /tmp/v078/patch.js
+          grep -q 'Otra búsqueda' /tmp/v078/patch.js
+          grep -q 'ANTES DE JUGAR' /tmp/v078/patch.js
+
+      - name: Build unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v078/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v078/work/classes.dex
+          cp /tmp/v078/index.html /tmp/v078/work/assets/index.html
+          cd /tmp/v078/work
+          zip -q -r /tmp/v078/El-Mister-v0.7.8.apk .
+          unzip -t /tmp/v078/El-Mister-v0.7.8.apk >/dev/null
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v078-signed/MANIFEST.MF.b64 > /tmp/v078/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v078-signed/ELMISTER.SF.b64 > /tmp/v078/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v078-signed/ELMISTER.RSA.b64 > /tmp/v078/signature/META-INF/ELMISTER.RSA
+          echo '126d918222d9701470c3e4b92eeb3ec86e6d5339704158cc824d005bda71e466  /tmp/v078/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '345deb236dc31cad3b23ccaf1aac17f51266667f0b81ebb323dafc26e2b1ee2d  /tmp/v078/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '0ab562cb43ac7f3d2856f91bda889d241104e92767ba4dbc4537d7819c7d4e02  /tmp/v078/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v078/signature
+          zip -q -g -r /tmp/v078/El-Mister-v0.7.8.apk META-INF
+          unzip -t /tmp/v078/El-Mister-v0.7.8.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v078/El-Mister-v0.7.8.apk | tee /tmp/v078/jarverify.txt
+          grep -q 'jar verified' /tmp/v078/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v078/expected.fp
+          keytool -printcert -jarfile /tmp/v078/El-Mister-v0.7.8.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v078/actual.fp
+          test -s /tmp/v078/expected.fp && test -s /tmp/v078/actual.fp
+          diff -u /tmp/v078/expected.fp /tmp/v078/actual.fp
+          unzip -p /tmp/v078/El-Mister-v0.7.8.apk assets/index.html | grep -q "const VERSION='0.7.8'"
+          unzip -p /tmp/v078/El-Mister-v0.7.8.apk assets/index.html | grep -q 'const VERSION_CODE=29'
+
+      - name: Publish update feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v078/El-Mister-v0.7.8.apk el-mister/El-Mister-v0.7.8.apk
+          cp /tmp/v078/index.html el-mister/source/v078-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.8.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 29,
+            "versionName": "0.7.8",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.8.apk",
+            "mandatory": false,
+            "changes": [
+              "Pirámide corregida: ascensos directos, Promociones, descensos y copas por puesto según cada división",
+              "La Promoción ahora se juega en un partido único intenso entre el 3.º de abajo y el 8.º de arriba",
+              "Premios económicos añadidos para copas, ascensos directos y ascensos por Promoción",
+              "Mercado de 7 días: podés usar el resto del club, ver la plantilla, hacer otra búsqueda o saltar toda la ventana",
+              "Cada minijuego muestra una tarjeta previa separada que explica la situación, qué hacer y el objetivo"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.8.apk el-mister/latest.json el-mister/source/v078-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.8 divisions promotions market and minigames'
+          git push origin HEAD:el-mister-updates
