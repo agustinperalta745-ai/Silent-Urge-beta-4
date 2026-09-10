@@ -1,0 +1,22 @@
+name: Prepare El Mister v0.8.8 match ending fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0808-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Build and validate v0.8.8 source
+        run: bash el-mister/release/v0808/prepare-source.sh
