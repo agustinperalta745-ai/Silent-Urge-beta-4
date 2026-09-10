@@ -1,15 +1,16 @@
 {
-  "versionCode": 31,
-  "versionName": "0.7.10",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.10.apk",
+  "versionCode": 32,
+  "versionName": "0.7.11",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.11.apk",
   "mandatory": false,
   "changes": [
-    "Corregido el error real que trababa el cierre de temporada al recalcular las otras divisiones",
-    "Continuar al mercado ahora completa ascensos, descensos y posiciones antes de abrir la ventana de 7 días",
-    "Ir al mercado después de una Promoción usa una ruta directa y recupera partidas que hayan quedado detenidas en esa pantalla",
-    "Se mantienen las secuencias conectadas y los nuevos minijuegos de la v0.7.9"
+    "Identidad de jugadores: dorsales estables en el primer equipo para reconocer siempre al mismo futbolista",
+    "Canteranos con código único tipo C2-03 que se conserva al subir al primer equipo",
+    "Plantilla y cambios muestran edad, OVR, potencial, energía y perfil futbolístico de cada jugador",
+    "Mercado de compras y ventas muestra más datos antes de negociar: posición, edad, OVR, potencial, tipo de jugador y rasgo",
+    "Los recién promovidos o fichados quedan marcados como NUEVO para encontrarlos rápido"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "765f89a8bad148b445b2c00a60bbd628880805a12da0ae49b100355b52b6415f",
+  "sha256": "03979a67ff49875fe42f45040e45edd261004a2fc604967644b1aa303ea0ebf5",
   "migration": true
 }
