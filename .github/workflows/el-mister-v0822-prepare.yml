@@ -1,0 +1,75 @@
+name: Prepare El Mister v0.8.22 force-update build
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0822-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build exact v0.8.22 unsigned APK from published v0.8.21 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0822
+          mkdir -p /tmp/v0822/work/assets /tmp/v0822/out
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v0821-index.html')
+          s=src.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.21';" in s
+          assert 'const VERSION_CODE=57;' in s
+          assert "window.em821SceneMatch={version:'0.8.21',mode:'deterministic-keyframes'" in s
+          s=s.replace("const VERSION='0.8.21';","const VERSION='0.8.22';",1)
+          s=s.replace('const VERSION_CODE=57;','const VERSION_CODE=58;',1)
+          marker="\nwindow.em822Build={version:'0.8.22',versionCode:58,change:'deterministic-match-scenes-force-update'};\n"
+          head,tail=s.rsplit('</script>',1)
+          s=head+marker+'</script>'+tail
+          assert "const VERSION='0.8.22';" in s
+          assert 'const VERSION_CODE=58;' in s
+          assert 'em822Build' in s
+          Path('/tmp/v0822/index.html').write_text(s,encoding='utf-8')
+          Path('el-mister/source/v0822-index.html').write_text(s,encoding='utf-8')
+          PY
+
+          base64 -d el-mister/source/v0822-AndroidManifest.xml.b64 > /tmp/v0822/AndroidManifest.xml
+          base64 -d el-mister/source/v0822-classes.dex.b64 > /tmp/v0822/classes.dex
+          cp /tmp/v0822/AndroidManifest.xml /tmp/v0822/work/AndroidManifest.xml
+          cp /tmp/v0822/classes.dex /tmp/v0822/work/classes.dex
+          cp /tmp/v0822/index.html /tmp/v0822/work/assets/index.html
+          (cd /tmp/v0822/work && zip -q -D /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk >/dev/null
+          unzip -p /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk assets/index.html | grep -q "const VERSION='0.8.22';"
+          unzip -p /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk assets/index.html | grep -q 'const VERSION_CODE=58;'
+          unzip -p /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk assets/index.html | grep -q 'em822Build'
+          unzip -p /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk classes.dex | strings | grep -q 'El-Mister-upd822.apk'
+          sha256sum /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk
+
+      - name: Commit canonical v0.8.22 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v0822-index.html
+          git diff --cached --quiet || git commit -m 'Prepare canonical El Mister v0.8.22 source'
+          git push origin HEAD:el-mister-updates
+
+      - name: Upload exact unsigned APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.22-unsigned
+          path: /tmp/v0822/out/El-Mister-v0.8.22-unsigned.apk
+          if-no-files-found: error
