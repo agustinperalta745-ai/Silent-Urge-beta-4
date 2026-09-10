@@ -1,0 +1,146 @@
+name: Publish El Mister v0.8.15 visual truth and interventions
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0815-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Verify bridge and publish v0.8.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0815pub && mkdir -p /tmp/v0815pub/final/META-INF /tmp/v0815pub/final/assets
+
+          cp el-mister/source/v0815-index.html /tmp/v0815pub/final/assets/index.html
+          base64 -d el-mister/source/v0815-AndroidManifest.xml.b64 > /tmp/v0815pub/final/AndroidManifest.xml
+          base64 -d el-mister/source/v0815-classes.dex.b64 > /tmp/v0815pub/final/classes.dex
+          base64 -d el-mister/release/v0815-prep/MANIFEST.MF.b64 > /tmp/v0815pub/final/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0815-prep/ELMISTER.SF.b64 > /tmp/v0815pub/final/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0815-signed/ELMISTER.RSA.b64 > /tmp/v0815pub/final/META-INF/ELMISTER.RSA
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          s=Path('/tmp/v0815pub/final/assets/index.html').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.15';" in s
+          assert 'const VERSION_CODE=51;' in s
+          assert 'window.em809AnimationTruth' in s
+          assert 'window.em811LegacyDynamicsBridge' in s
+          assert 'window.em814DecisionBridge' in s
+          assert "goalVisual:'continuous-before-score'" in s
+          assert "interventions:'historical-minimum-two'" in s
+          patch=Path('el-mister/release/v0815/match-truth-bridge.js').read_text(encoding='utf-8')
+          assert 'em805PlaceGoalScene' not in patch
+          assert 'const start={x:Number(b.x)' in patch
+          assert 'commitGoal(q,l)' in patch
+          assert 'if(t<1)return requestAnimationFrame(frame)' in patch
+          assert 'count===0&&l.minute>=p.first' in patch
+          assert 'count===1&&l.minute>=p.second' in patch
+          dex=Path('/tmp/v0815pub/final/classes.dex').read_bytes()
+          assert b'El-Mister-upd815.apk' in dex and b'El-Mister-upd814.apk' not in dex
+          b=bytearray(Path('/tmp/v0815pub/final/AndroidManifest.xml').read_bytes())
+          pos=8; strings=[]; native=None; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': native=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera',package
+          assert native==51,native
+          print('Android package:',package,'native versionCode:',native)
+          PY
+
+          # JS and visual continuity regression checks.
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/v0815pub/final/assets/index.html').read_text(encoding='utf-8')
+          Path('/tmp/v0815pub/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0815pub/full.js
+          node el-mister/release/v0809/test-animation-truth.js
+
+          # Exact file order; no synthetic directory entries.
+          (cd /tmp/v0815pub/final && zip -q -D /tmp/v0815pub/El-Mister-v0.8.15.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0815pub/El-Mister-v0.8.15.apk >/dev/null
+
+          jarsigner -verify -verbose -certs /tmp/v0815pub/El-Mister-v0.8.15.apk | tee /tmp/v0815pub/jarverify.txt
+          grep -q 'jar verified' /tmp/v0815pub/jarverify.txt
+          if grep -q 'internal inconsistencies' /tmp/v0815pub/jarverify.txt; then exit 1; fi
+
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0815pub/expected.fp
+          keytool -printcert -jarfile /tmp/v0815pub/El-Mister-v0.8.15.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0815pub/actual.fp
+          diff -u /tmp/v0815pub/expected.fp /tmp/v0815pub/actual.fp
+
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER=$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner 2>/dev/null | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs /tmp/v0815pub/El-Mister-v0.8.15.apk | tee /tmp/v0815pub/apkverify.txt
+          grep -q '^Verifies$' /tmp/v0815pub/apkverify.txt
+
+          cp /tmp/v0815pub/El-Mister-v0.8.15.apk el-mister/El-Mister-v0.8.15.apk
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.15.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          from pathlib import Path
+          import json,sys
+          sha=sys.argv[1]
+          p=Path('el-mister/latest.json')
+          old=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+          data={
+            'versionCode':51,
+            'versionName':'0.8.15',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.15.apk',
+            'mandatory':False,
+            'changes':[
+              'Los goles ya no teletransportan la pelota: la jugada se representa desde la posición real de la pelota y el marcador cambia recién cuando entra',
+              'Si cambia la posesión antes de un gol, la animación muestra la recuperación y la progresión hacia el otro arco en lugar de saltar de punta a punta',
+              'Cada partido garantiza al menos dos oportunidades de intervención del DT, manteniendo cantidad variable según el contexto',
+              'Las situaciones, decisiones y minijuegos siguen siendo los históricos; no se agregan menús del Motor 2D',
+              'Se mantiene la corrección 0.8.14 para que toda situación generada se muestre sobre la cancha congelada',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':old.get('onlineUrl','https://el-mister-online.agustinperalta745.workers.dev'),
+            'sha256':sha,
+            'migration':True
+          }
+          p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.15.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.15 visual truth and interventions'
+          git push origin HEAD:el-mister-updates
