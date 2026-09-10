@@ -1,0 +1,64 @@
+name: Build El Mister v0.8.3 contextual interventions
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0803-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Regression tests
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0803/scenario-recovery.js
+          node el-mister/release/v0803/test-scenario-recovery.js
+      - name: Assemble v0.8.3 from published v0.8.2
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0803 && mkdir -p /tmp/v0803/work/assets
+          cp el-mister/source/v0802-index.html /tmp/v0803/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0803/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.2';" not in s or 'const VERSION_CODE=38;' not in s:
+              raise SystemExit('v0.8.2 markers not found')
+          s=s.replace("const VERSION='0.8.2';", "const VERSION='0.8.3';", 1)
+          s=s.replace('const VERSION_CODE=38;', 'const VERSION_CODE=39;', 1)
+          fix=Path('el-mister/release/v0803/scenario-recovery.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+fix+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0803/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0803/full.js
+          grep -q "const VERSION='0.8.3'" /tmp/v0803/index.html
+          grep -q 'em803Create' /tmp/v0803/index.html
+          grep -q 'em803Connected' /tmp/v0803/index.html
+          grep -q 'launch79mini' /tmp/v0803/index.html
+          grep -q 'MOTOR 2D' /tmp/v0803/index.html
+      - name: Build unsigned APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0803/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0803/work/classes.dex
+          cp /tmp/v0803/index.html /tmp/v0803/work/assets/index.html
+          cd /tmp/v0803/work
+          zip -q -r /tmp/v0803/El-Mister-v0.8.3-unsigned.apk .
+          unzip -t /tmp/v0803/El-Mister-v0.8.3-unsigned.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0803-unsigned
+          path: /tmp/v0803/El-Mister-v0.8.3-unsigned.apk
+          retention-days: 3
