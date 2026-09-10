@@ -1,0 +1,41 @@
+name: Export El Mister v0.8.23 reconstructed source
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0823-export-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Reconstruct exact source used by publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v0823src
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('el-mister/source/v0822-index.html').read_text(encoding='utf-8')
+          module=Path('el-mister/scenematch/scenematch-v0823-static.js').read_text(encoding='utf-8')
+          base=base.replace("const VERSION='0.8.22';","const VERSION='0.8.23';",1)
+          base=base.replace('const VERSION_CODE=58;','const VERSION_CODE=59;',1)
+          head,tail=base.rsplit('</script>',1)
+          marker="window.em823Build={version:'0.8.23',versionCode:59,change:'static-situation-image-no-animation'};"
+          out=head+'\n'+module+'\n\n'+marker+'\n</script>'+tail
+          Path('/tmp/v0823src/index.html').write_text(out,encoding='utf-8')
+          PY
+          sha256sum /tmp/v0823src/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.23-exact-source
+          path: /tmp/v0823src/index.html
+          if-no-files-found: error
