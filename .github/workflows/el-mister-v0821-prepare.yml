@@ -1,0 +1,152 @@
+name: Prepare El Mister v0.8.21 deterministic match scenes
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0821-prepare.yml'
+      - 'el-mister/scenematch/scenematch-v0821.js'
+      - 'el-mister/release/v0821/test-deterministic-scenes.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build deterministic portrait match payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0821
+          mkdir -p /tmp/v0821/work/assets /tmp/v0821/out el-mister/release/v0821-prep
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v0820-index.html')
+          module_path=Path('el-mister/scenematch/scenematch-v0821.js')
+          s=src.read_text(encoding='utf-8')
+          module=module_path.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.20';" in s
+          assert 'const VERSION_CODE=56;' in s
+          assert 'window.em820SceneMatch' in s
+          assert 'Math.random' not in module
+          assert 'requestAnimationFrame' not in module
+          assert "mode:'deterministic-keyframes'" in module
+          assert 'randomVisual:false' in module
+          assert 'aspect-ratio:64/100' in module
+          assert 'f.arrows.length<2' in module
+          assert '.scenario=null' not in module
+          assert 'simulateSegment(to)' in module
+          assert 'El partido se resuelve con el sistema histórico' not in module
+          s=s.replace("const VERSION='0.8.20';","const VERSION='0.8.21';",1)
+          s=s.replace('const VERSION_CODE=56;','const VERSION_CODE=57;',1)
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+module+'\n</script>'+tail
+          assert "const VERSION='0.8.21';" in s
+          assert 'const VERSION_CODE=57;' in s
+          assert "window.em821SceneMatch={version:'0.8.21',mode:'deterministic-keyframes',authority:'historical',continuous:false,randomVisual:false,portrait:true,scenarioClear:false}" in s
+          assert 'v06RenderMatchHub=function()' in s
+          assert 'renderLiveDecision=renderHistoricalDecision;' in s
+          Path('/tmp/v0821/index.html').write_text(s,encoding='utf-8')
+          Path('/tmp/v0821/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0821/full.js
+          node --check el-mister/scenematch/scenematch-v0821.js
+          node el-mister/release/v0821/test-deterministic-scenes.js el-mister/scenematch/scenematch-v0821.js
+          node el-mister/release/v0809/test-animation-truth.js
+
+      - name: Prepare native wrapper v0.8.21
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v0820-AndroidManifest.xml.b64 > /tmp/v0821/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p=Path('/tmp/v0821/AndroidManifest.xml'); b=bytearray(p.read_bytes())
+          pos=8; strings=[]; changed=False; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': struct.pack_into('<I',b,ap+16,57); changed=True
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert changed and package=='com.elmister.carrera',(changed,package)
+          p.write_bytes(b)
+          PY
+          base64 -d el-mister/source/v0820-classes.dex.b64 > /tmp/v0821/classes.dex
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+          p=Path('/tmp/v0821/classes.dex'); b=bytearray(p.read_bytes())
+          old=b'El-Mister-upd820.apk'; new=b'El-Mister-upd821.apk'
+          assert len(old)==len(new) and old in b and new not in b
+          b=bytearray(bytes(b).replace(old,new,1))
+          b[12:32]=hashlib.sha1(b[32:]).digest()
+          struct.pack_into('<I',b,8,zlib.adler32(b[12:]) & 0xffffffff)
+          p.write_bytes(b)
+          assert bytes(b[12:32])==hashlib.sha1(b[32:]).digest()
+          assert struct.unpack_from('<I',b,8)[0]==(zlib.adler32(b[12:]) & 0xffffffff)
+          assert new in b and old not in b
+          PY
+          cp /tmp/v0821/AndroidManifest.xml /tmp/v0821/work/AndroidManifest.xml
+          cp /tmp/v0821/classes.dex /tmp/v0821/work/classes.dex
+          cp /tmp/v0821/index.html /tmp/v0821/work/assets/index.html
+          (cd /tmp/v0821/work && zip -q -D /tmp/v0821/out/El-Mister-v0.8.21-unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0821/out/El-Mister-v0.8.21-unsigned.apk >/dev/null
+          unzip -p /tmp/v0821/out/El-Mister-v0.8.21-unsigned.apk assets/index.html | grep -q 'em821SceneMatch'
+
+      - name: Produce signing preparation metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy821.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy821.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0821/out/dummy.apk /tmp/v0821/out/El-Mister-v0.8.21-unsigned.apk dummy >/dev/null 2>&1
+          unzip -p /tmp/v0821/out/dummy.apk META-INF/MANIFEST.MF | base64 -w0 > el-mister/release/v0821-prep/MANIFEST.MF.b64
+          unzip -p /tmp/v0821/out/dummy.apk META-INF/DUMMY.SF | base64 -w0 > el-mister/release/v0821-prep/ELMISTER.SF.b64
+          base64 -w0 /tmp/v0821/AndroidManifest.xml > el-mister/source/v0821-AndroidManifest.xml.b64
+          base64 -w0 /tmp/v0821/classes.dex > el-mister/source/v0821-classes.dex.b64
+          cp /tmp/v0821/index.html el-mister/source/v0821-index.html
+
+      - name: Upload unsigned APK for device testing/signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.21-unsigned
+          path: /tmp/v0821/out/El-Mister-v0.8.21-unsigned.apk
+          if-no-files-found: error
+
+      - name: Commit prepared source and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v0821-prep el-mister/source/v0821-index.html el-mister/source/v0821-AndroidManifest.xml.b64 el-mister/source/v0821-classes.dex.b64
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.21 deterministic match payload'
+          git push origin HEAD:el-mister-updates
