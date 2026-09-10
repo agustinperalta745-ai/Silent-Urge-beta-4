@@ -1,15 +1,17 @@
 {
-  "versionCode": 53,
-  "versionName": "0.8.17",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.17.apk",
+  "versionCode": 57,
+  "versionName": "0.8.21",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.21.apk",
   "mandatory": false,
   "changes": [
-    "Corregido el fallo que mostraba “No se pudo abrir la situación. El partido continúa.”",
-    "Si falla la capa visual, la situación ya no se borra ni se saltea: el partido queda pausado y conserva la misma decisión",
-    "Se mantienen las preguntas, opciones y lógica histórica del partido; la simulación visual queda como capa adicional",
+    "Cancha de partido vertical y grande, manteniendo intacto el sistema de decisiones y minijuegos",
+    "Las jugadas visuales ahora avanzan por frames con movimientos coherentes, sin bolitas moviéndose al azar",
+    "La pelota, los apoyos, las marcas y las flechas representan la jugada que realmente se está mostrando",
+    "Presión alta, bloque bajo, laterales altos, planteo ofensivo y expulsiones se reflejan en la cancha",
+    "Se limita la cantidad de flechas para que cada secuencia se entienda de un vistazo",
     "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "a02dddbd7d0b686680fafcc32ff75e8db65f8684bad5058280edf85bf743b7eb",
+  "sha256": "6ac5e96ef8f0062156bc095ada3e1b6a059145e8d3116f24c88716babd9237cf",
   "migration": true
 }
