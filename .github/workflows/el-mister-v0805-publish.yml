@@ -5,6 +5,7 @@ on:
     branches: [el-mister-updates]
     paths:
       - '.github/workflows/el-mister-v0805-publish.yml'
+      - 'el-mister/release/v0805-signed/**'
   workflow_dispatch:
 
 permissions:
