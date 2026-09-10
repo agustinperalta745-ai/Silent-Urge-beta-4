@@ -1,0 +1,126 @@
+name: Publish El Mister v0.8.24 rollback to pre-visual match system
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v0824/El-Mister-v0.8.24.apk.b64'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Decode and verify signed rollback APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0824
+          mkdir -p /tmp/v0824
+          base64 -d el-mister/release/v0824/El-Mister-v0.8.24.apk.b64 > /tmp/v0824/El-Mister-v0.8.24.apk
+          unzip -t /tmp/v0824/El-Mister-v0.8.24.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0824/El-Mister-v0.8.24.apk > /tmp/v0824/verify.txt 2>&1
+          grep -q 'jar verified' /tmp/v0824/verify.txt
+
+          FPR=$(keytool -printcert -jarfile /tmp/v0824/El-Mister-v0.8.24.apk 2>/dev/null | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1)
+          EXPECTED='87:11:11:3A:4D:61:A2:06:FC:5B:17:8E:F8:70:B6:6A:97:1E:FF:6C:F4:CF:23:BD:43:FC:6D:2D:0B:CF:C2:57'
+          test "$FPR" = "$EXPECTED"
+
+          unzip -p /tmp/v0824/El-Mister-v0.8.24.apk assets/index.html > /tmp/v0824/index.html
+          grep -q "const VERSION='0.8.24';" /tmp/v0824/index.html
+          grep -q 'const VERSION_CODE=60;' /tmp/v0824/index.html
+          grep -q 'v0711EnsureRosterIdentity' /tmp/v0824/index.html
+          grep -q 'start79' /tmp/v0824/index.html
+          ! grep -q 'v0712' /tmp/v0824/index.html
+          ! grep -q 'SIMULACIÓN VISUAL' /tmp/v0824/index.html
+          ! grep -q 'static-situation-image' /tmp/v0824/index.html
+          ! grep -q 'v0823' /tmp/v0824/index.html
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          b=Path('/tmp/v0824/El-Mister-v0.8.24.apk').read_bytes()
+          import zipfile
+          with zipfile.ZipFile('/tmp/v0824/El-Mister-v0.8.24.apk') as z:
+              m=z.read('AndroidManifest.xml')
+          pos=8; strings=[]; package=None; version=None
+          while pos < len(m):
+              typ,hs,sz=struct.unpack_from('<HHI',m,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',m,pos+8)
+                  utf8=bool(flags&0x100)
+                  offs=[struct.unpack_from('<I',m,pos+hs+4*i)[0] for i in range(sc)]
+                  base=pos+ss
+                  def r8(q):
+                      x=m[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|m[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(m[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',m,q)[0]; q+=2; strings.append(bytes(m[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',m,pos+16)
+                  attrStart,attrSize,attrCount=struct.unpack_from('<HHH',m,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for _ in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',m,ap)
+                          if strings[aname]=='versionCode': version=struct.unpack_from('<I',m,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera', package
+          assert version==60, version
+          html=Path('/tmp/v0824/index.html').read_text(encoding='utf-8')
+          js=html.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0824/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0824/full.js
+
+      - name: Publish rollback through in-app updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0824/El-Mister-v0.8.24.apk el-mister/El-Mister-v0.8.24.apk
+          cp /tmp/v0824/index.html el-mister/source/v0824-index.html
+          SHA=$(sha256sum /tmp/v0824/El-Mister-v0.8.24.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          import json,sys
+          sha=sys.argv[1]
+          data={
+            'versionCode':60,
+            'versionName':'0.8.24',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.24.apk',
+            'mandatory':False,
+            'changes':[
+              'Se elimina por completo el sistema visual para ver el partido: sin cancha, bolitas, flechas ni imágenes tácticas',
+              'El partido vuelve exactamente al último sistema anterior a esa función, correspondiente a la base v0.7.11',
+              'Se mantienen las elecciones, las preguntas conectadas y las cadenas de decisiones que ya funcionaban antes',
+              'Se mantienen minijuegos, cambios, tarjetas, cansancio y la lógica histórica del partido previa a la visualización',
+              'No se arrastran parches posteriores de la cancha ni de la simulación visual',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':'https://el-mister-online.agustinperalta745.workers.dev',
+            'sha256':sha,
+            'migration':True
+          }
+          open('el-mister/latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.24.apk el-mister/source/v0824-index.html el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.24 rollback to v0.7.11 match system'
+          git push origin HEAD:el-mister-updates
