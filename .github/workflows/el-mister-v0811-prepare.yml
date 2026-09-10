@@ -63,15 +63,16 @@ jobs:
           (cd /tmp/v0811/work && zip -q -r /tmp/v0811/out/unsigned.apk .)
           unzip -t /tmp/v0811/out/unsigned.apk >/dev/null
 
-      - name: Produce key-independent JAR signing metadata
+      - name: Produce byte-exact JAR signing metadata
         shell: bash
         run: |
           set -euo pipefail
           keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
           jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0811/out/dummy.apk /tmp/v0811/out/unsigned.apk dummy >/dev/null 2>&1
           mkdir -p el-mister/release/v0811-prep
-          unzip -p /tmp/v0811/out/dummy.apk META-INF/MANIFEST.MF > el-mister/release/v0811-prep/MANIFEST.MF
-          unzip -p /tmp/v0811/out/dummy.apk META-INF/DUMMY.SF > el-mister/release/v0811-prep/ELMISTER.SF
+          rm -f el-mister/release/v0811-prep/MANIFEST.MF el-mister/release/v0811-prep/ELMISTER.SF
+          unzip -p /tmp/v0811/out/dummy.apk META-INF/MANIFEST.MF | base64 -w0 > el-mister/release/v0811-prep/MANIFEST.MF.b64
+          unzip -p /tmp/v0811/out/dummy.apk META-INF/DUMMY.SF | base64 -w0 > el-mister/release/v0811-prep/ELMISTER.SF.b64
           sha256sum /tmp/v0811/out/unsigned.apk | cut -d' ' -f1 > el-mister/release/v0811-prep/unsigned.sha256
           cp /tmp/v0811/index.html el-mister/source/v0811-index.html
 
@@ -81,6 +82,6 @@ jobs:
           set -euo pipefail
           git config user.name 'El Mister Update Bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add el-mister/release/v0811-prep el-mister/source/v0811-index.html
-          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.11 exact signing metadata'
+          git add -A el-mister/release/v0811-prep el-mister/source/v0811-index.html
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.11 byte exact signing metadata'
           git push origin HEAD:el-mister-updates
