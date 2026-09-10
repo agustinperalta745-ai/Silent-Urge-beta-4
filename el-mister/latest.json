@@ -1,17 +1,16 @@
 {
-  "versionCode": 51,
-  "versionName": "0.8.15",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.15.apk",
+  "versionCode": 52,
+  "versionName": "0.8.16",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.16.apk",
   "mandatory": false,
   "changes": [
-    "Los goles ya no teletransportan la pelota: la jugada se representa desde la posición real de la pelota y el marcador cambia recién cuando entra",
-    "Si cambia la posesión antes de un gol, la animación muestra la recuperación y la progresión hacia el otro arco en lugar de saltar de punta a punta",
-    "Cada partido garantiza al menos dos oportunidades de intervención del DT, manteniendo cantidad variable según el contexto",
-    "Las situaciones, decisiones y minijuegos siguen siendo los históricos; no se agregan menús del Motor 2D",
-    "Se mantiene la corrección 0.8.14 para que toda situación generada se muestre sobre la cancha congelada",
+    "Corrección exclusiva del paquete Android: reparados SHA-1 y Adler32 internos de classes.dex después de cambiar el nombre del APK del actualizador",
+    "Se mantiene exactamente la jugabilidad y simulación preparada en v0.8.15",
+    "El paquete conserva com.elmister.carrera y la misma firma de El Míster",
+    "Agregada validación automática de integridad DEX para impedir repetir este error",
     "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "d295f0474a85267c4ef1fe1c30533a451618f6901305f975a95498a4a3a22ac4",
+  "sha256": "6588833cf82e10d76dd39988e95b36b5f78b82038829cc8fe760b853a7caf5fa",
   "migration": true
 }
