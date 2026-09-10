@@ -1,0 +1,63 @@
+name: Build El Mister v0.7.12 unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - 'el-mister/release/v0712/**'
+      - '.github/workflows/el-mister-v0712-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble v0.7.12 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0712
+          mkdir -p /tmp/v0712/work/assets
+          node --check el-mister/release/v0712/match-visual.js
+          cp el-mister/source/v0711-index.html /tmp/v0712/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0712/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.11';" not in s or 'const VERSION_CODE=32;' not in s:
+              raise SystemExit('v0.7.11 markers not found')
+          s=s.replace("const VERSION='0.7.11';", "const VERSION='0.7.12';", 1)
+          s=s.replace('const VERSION_CODE=32;', 'const VERSION_CODE=33;', 1)
+          patch=Path('el-mister/release/v0712/match-visual.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0712/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0712/full.js
+          grep -q "const VERSION='0.7.12'" /tmp/v0712/index.html
+          grep -q 'SIMULACIÓN VISUAL' /tmp/v0712/index.html
+          grep -q 'v0712Advance' /tmp/v0712/index.html
+          grep -q 'La cancha se detuvo en esta situación' /tmp/v0712/index.html
+          grep -q 'v0711EnsureRosterIdentity' /tmp/v0712/index.html
+          grep -q 'start79' /tmp/v0712/index.html
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0712/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0712/work/classes.dex
+          cp /tmp/v0712/index.html /tmp/v0712/work/assets/index.html
+          cd /tmp/v0712/work
+          zip -q -r /tmp/v0712/El-Mister-v0.7.12-unsigned.apk .
+          unzip -t /tmp/v0712/El-Mister-v0.7.12-unsigned.apk >/dev/null
+      - name: Upload unsigned build
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0712-unsigned
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            /tmp/v0712/El-Mister-v0.7.12-unsigned.apk
+            /tmp/v0712/index.html
