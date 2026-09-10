@@ -1,18 +1,18 @@
 {
-  "versionCode": 41,
-  "versionName": "0.8.5",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.5.apk",
+  "versionCode": 42,
+  "versionName": "0.8.6",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.6.apk",
   "mandatory": false,
   "changes": [
-    "Marcador, eventos y cancha quedan coordinados: ningún gol normal puede aparecer mientras la pelota está en otra zona",
-    "Si una lógica de partido genera un gol fuera de la jugada visible, primero se representa el remate y la pelota entrando, recién después cambia el marcador y hay saque del medio",
-    "Se mantienen las escenas coherentes de decisiones de la 0.8.4: remates, centros, penales, tiros libres, córners, mano a mano, salida bajo presión y situaciones defensivas",
-    "La barrita de timing tiene menos margen y mayor velocidad, ajustándose a dificultad, importancia del partido y habilidad del jugador",
-    "Los minijuegos de pase filtrado, salida bajo presión, centros/memoria y mano a mano también suben un escalón de dificultad sin volverse frustrantes",
-    "Se eliminan de la resolución del remate los porcentajes visibles de probabilidad; la lógica sigue siendo interna",
-    "El movimiento normal, los pases y las físicas del Motor 2D no fueron modificados"
+    "La cancha manda: la zona y la posesión reales de la pelota definen las decisiones disponibles",
+    "Cerca de tu área aparecen decisiones defensivas, de arquero y salida; en mitad de cancha, progresión y presión; cerca del área rival con posesión propia, remates, centros, duelos y búsqueda de faltas",
+    "Ya no se mueve artificialmente la cancha para justificar una decisión: cada situación nace de la jugada que ya se estaba viendo",
+    "Las decisiones encadenadas hacen avanzar o retroceder la jugada de forma coherente",
+    "Gol: saque del medio; banda: lateral; línea de fondo: saque de arco o córner según el último toque",
+    "Se mantienen los minijuegos, su dificultad adaptativa y la coordinación visual de goles de la 0.8.5",
+    "No se modificó el movimiento normal, los pases ni las físicas de la animación 2D"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "590187ebef3d395641fc57b9d07b3c71a419f2f4cee931f9536c2a5b48a143e8",
+  "sha256": "c19a6b99485b1d85353809f6a410caf18438b9cf5bca4e2286acf28beb2b71eb",
   "migration": true
 }
