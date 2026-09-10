@@ -1,0 +1,22 @@
+name: Publish El Mister v0.8.7 fixed
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0807-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Rebuild verify and publish v0.8.7
+        run: bash el-mister/release/v0807/publish.sh
