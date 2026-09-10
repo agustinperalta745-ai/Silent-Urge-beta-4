@@ -1,0 +1,23 @@
+name: Publish El Mister v0.8.11 latest visual and legacy dynamics
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0811-publish.yml'
+      - 'el-mister/release/v0811-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Rebuild verify and publish v0.8.11
+        run: bash el-mister/release/v0811-signed/publish.sh
