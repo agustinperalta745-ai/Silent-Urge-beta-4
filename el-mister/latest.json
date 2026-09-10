@@ -1,16 +1,16 @@
 {
-  "versionCode": 45,
-  "versionName": "0.8.9",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.9.apk",
+  "versionCode": 46,
+  "versionName": "0.8.10",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.10.apk",
   "mandatory": false,
   "changes": [
-    "La animación vuelve a respetar la posición real de la pelota y de los jugadores cuando aparece una decisión",
-    "Las continuaciones de las jugadas se muestran en cancha en vez de teletransportar la pelota a otra zona",
-    "Se mantiene el Motor 2D actual: no se reemplazaron decisiones, minijuegos ni el flujo general del partido",
-    "Penales, tiros libres, córners y demás reinicios conservan su lógica específica",
-    "Se mantiene la protección contra finales prematuros y el resultado final de la v0.8.8"
+    "Restaurado el sistema de partido exacto de la base anterior a la pantalla de simulación (v0.7.11)",
+    "Vuelven las preguntas, decisiones, minijuegos, pausas, consecuencias, cambios y cierre de partido originales",
+    "La cancha animada se agrega únicamente como capa visual y se congela sobre la misma decisión de siempre",
+    "Eliminado del partido el Motor 2D v0.8.x que había reemplazado parte de la jugabilidad",
+    "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "1cd834605cafb96ed62c089acad283d7f3de88098d2b4dff445448bffba78e29",
+  "sha256": "0146f6e98cff1108729a73d0b72b72bcc7718aac27e1e356ba12e6e66af16f66",
   "migration": true
 }
