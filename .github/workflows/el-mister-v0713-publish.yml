@@ -1,0 +1,112 @@
+name: Publish El Mister v0.7.13
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0713-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Assemble source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0713
+          mkdir -p /tmp/v0713/work/assets /tmp/v0713/signature/META-INF
+          node --check el-mister/release/v0713/football-motion.js
+          cp el-mister/source/v0712-index.html /tmp/v0713/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0713/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.12';" not in s or 'const VERSION_CODE=33;' not in s:
+              raise SystemExit('v0.7.12 markers not found')
+          s=s.replace("const VERSION='0.7.12';", "const VERSION='0.7.13';", 1)
+          s=s.replace('const VERSION_CODE=33;', 'const VERSION_CODE=34;', 1)
+          patch=Path('el-mister/release/v0713/football-motion.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0713/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0713/full.js
+          grep -q "const VERSION='0.7.13'" /tmp/v0713/index.html
+          grep -q 'v0713StartPass' /tmp/v0713/index.html
+          grep -q 'v0713NearestOpponent' /tmp/v0713/index.html
+          grep -q 'SIMULACIÓN DE PARTIDO' /tmp/v0713/index.html
+          grep -q 'setInterval(v0713Motion,850)' /tmp/v0713/index.html
+          grep -q 'v0711EnsureRosterIdentity' /tmp/v0713/index.html
+          grep -q 'start79' /tmp/v0713/index.html
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0713/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0713/work/classes.dex
+          cp /tmp/v0713/index.html /tmp/v0713/work/assets/index.html
+          cd /tmp/v0713/work
+          zip -q -r /tmp/v0713/El-Mister-v0.7.13.apk .
+          unzip -t /tmp/v0713/El-Mister-v0.7.13.apk >/dev/null
+      - name: Attach verified signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v0713-signed/MANIFEST.MF.b64 > /tmp/v0713/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0713-signed/ELMISTER.SF.b64 > /tmp/v0713/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0713-signed/ELMISTER.RSA.b64 > /tmp/v0713/signature/META-INF/ELMISTER.RSA
+          echo '7b65971125846543e3227ebb075660293746f977905cff39d65415172cb27b1d  /tmp/v0713/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '67c1c3bad07d223760744882ff782275b7a492f9685a11d4c754f54d12058cde  /tmp/v0713/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '25250d17b326e0800341f8f150e202f0feaad0e79c00c4fecd8225723fbd8a7b  /tmp/v0713/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v0713/signature
+          zip -q -g -r /tmp/v0713/El-Mister-v0.7.13.apk META-INF
+          unzip -t /tmp/v0713/El-Mister-v0.7.13.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0713/El-Mister-v0.7.13.apk | tee /tmp/v0713/jarverify.txt
+          grep -q 'jar verified' /tmp/v0713/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0713/expected.fp
+          keytool -printcert -jarfile /tmp/v0713/El-Mister-v0.7.13.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0713/actual.fp
+          diff -u /tmp/v0713/expected.fp /tmp/v0713/actual.fp
+          unzip -p /tmp/v0713/El-Mister-v0.7.13.apk assets/index.html | grep -q "const VERSION='0.7.13'"
+          unzip -p /tmp/v0713/El-Mister-v0.7.13.apk assets/index.html | grep -q 'v0713StartPass'
+      - name: Publish update feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0713/El-Mister-v0.7.13.apk el-mister/El-Mister-v0.7.13.apk
+          cp /tmp/v0713/index.html el-mister/source/v0713-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.13.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 34,
+            "versionName": "0.7.13",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.13.apk",
+            "mandatory": false,
+            "changes": [
+              "La simulación visual deja de mover jugadores y pelota al azar",
+              "La pelota ahora tiene un poseedor real y sólo cambia mediante pases, conducción o una pérdida",
+              "Los jugadores se mueven más lento y respetan su zona, la formación y el movimiento del bloque",
+              "El equipo acompaña la posesión y reacciona de forma coherente cuando cambia quién tiene la pelota",
+              "Los pases tienen recorrido visible y las pérdidas pasan al rival que corta la jugada",
+              "Se mantienen las intervenciones automáticas, jugadas conectadas, minijuegos, cambios y decisiones tácticas"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.13.apk el-mister/latest.json el-mister/source/v0713-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.13 football motion fix'
+          git push origin HEAD:el-mister-updates
