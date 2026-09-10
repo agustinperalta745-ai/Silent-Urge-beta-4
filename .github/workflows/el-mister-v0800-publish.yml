@@ -1,0 +1,123 @@
+name: Publish El Mister v0.8.0
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0800-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Validate new football engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0800/match-engine.js
+          node --check el-mister/release/v0800/test-runtime.js
+          node el-mister/release/v0800/test-runtime.js
+
+      - name: Assemble v0.8.0 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0800
+          mkdir -p /tmp/v0800/work/assets /tmp/v0800/signature/META-INF
+          cp el-mister/source/v0714-index.html /tmp/v0800/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0800/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.14';" not in s or 'const VERSION_CODE=35;' not in s:
+              raise SystemExit('v0.7.14 version markers not found')
+          s=s.replace("const VERSION='0.7.14';", "const VERSION='0.8.0';", 1)
+          s=s.replace('const VERSION_CODE=35;', 'const VERSION_CODE=36;', 1)
+          patch=Path('el-mister/release/v0800/match-engine.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0800/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0800/full.js
+          grep -q "const VERSION='0.8.0'" /tmp/v0800/index.html
+          grep -q 'const VERSION_CODE=36' /tmp/v0800/index.html
+          grep -q 'const EM80=' /tmp/v0800/index.html
+          grep -q 'em80CarrierThink' /tmp/v0800/index.html
+          grep -q 'em80EmergencyDecision' /tmp/v0800/index.html
+          grep -q 'MOTOR 2D' /tmp/v0800/index.html
+          grep -q 'start79' /tmp/v0800/index.html
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0800/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0800/work/classes.dex
+          cp /tmp/v0800/index.html /tmp/v0800/work/assets/index.html
+          cd /tmp/v0800/work
+          zip -q -r /tmp/v0800/El-Mister-v0.8.0.apk .
+          unzip -t /tmp/v0800/El-Mister-v0.8.0.apk >/dev/null
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v0800-signed/MANIFEST.MF.b64 > /tmp/v0800/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0800-signed/ELMISTER.SF.b64 > /tmp/v0800/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0800-signed/ELMISTER.RSA.b64 > /tmp/v0800/signature/META-INF/ELMISTER.RSA
+          echo 'ec587314287f2e487547e35afbc526a4cef7971bf2bcc9e7c2015fe4eafb343e  /tmp/v0800/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo 'e94b9107692bd1a10a2ea1168e1ae31d54556798b4e5d6fce84aa0cc37e97969  /tmp/v0800/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '7b092fc714857830052a01e94d5be357e8201fdd305c499bd0d198c7c3012164  /tmp/v0800/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v0800/signature
+          zip -q -g -r /tmp/v0800/El-Mister-v0.8.0.apk META-INF
+          unzip -t /tmp/v0800/El-Mister-v0.8.0.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0800/El-Mister-v0.8.0.apk | tee /tmp/v0800/jarverify.txt
+          grep -q 'jar verified' /tmp/v0800/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0800/expected.fp
+          keytool -printcert -jarfile /tmp/v0800/El-Mister-v0.8.0.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0800/actual.fp
+          diff -u /tmp/v0800/expected.fp /tmp/v0800/actual.fp
+          unzip -p /tmp/v0800/El-Mister-v0.8.0.apk assets/index.html | grep -q "const VERSION='0.8.0'"
+          unzip -p /tmp/v0800/El-Mister-v0.8.0.apk assets/index.html | grep -q 'em80CarrierThink'
+
+      - name: Publish updater release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0800/El-Mister-v0.8.0.apk el-mister/El-Mister-v0.8.0.apk
+          cp /tmp/v0800/index.html el-mister/source/v0800-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.0.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 36,
+            "versionName": "0.8.0",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.0.apk",
+            "mandatory": false,
+            "changes": [
+              "Nuevo motor 2D de partido en Canvas: se reemplaza la simulación anterior de puntos HTML",
+              "Los 22 jugadores tienen movimiento independiente por posición, fase de juego, posesión, apoyos, marcas y coberturas",
+              "La pelota tiene posesión, conducción, pases con trayectoria, intercepciones, centros, remates, atajadas y reinicios de juego",
+              "Los arcos forman parte del dibujo de la cancha y ya no pueden tapar jugadores ni crear zonas negras por encima",
+              "Las intervenciones del DT, decisiones conectadas y minijuegos siguen integrados y el partido retoma después de resolverlos",
+              "Se añadió recuperación de emergencia para evitar que una pausa de intervención deje el partido congelado"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.0.apk el-mister/latest.json el-mister/source/v0800-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.0 new 2D match engine'
+          git push origin HEAD:el-mister-updates
