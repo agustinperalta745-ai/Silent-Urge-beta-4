@@ -1,16 +1,16 @@
 {
-  "versionCode": 47,
-  "versionName": "0.8.11",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.11.apk",
+  "versionCode": 48,
+  "versionName": "0.8.12",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.12.apk",
   "mandatory": false,
   "changes": [
-    "Vuelve la última simulación visual lograda en v0.8.9, con continuidad real de pelota y jugadores",
-    "Las circunstancias del partido vuelven a la dinámica anterior a introducir la pantalla: goles, pausas contextuales, tarjetas, lesiones y decisiones variadas",
-    "Restaurados los minijuegos y su lógica original: penales, tiros libres, centros, mano a mano, pase filtrado, regate, remate y acciones defensivas",
-    "La animación ya no inventa goles ni decide qué situación aparece: solo representa lo que resuelve el motor de partido",
-    "Se mantiene la protección contra cierres prematuros y la carrera guardada"
+    "Corregido el paquete Android: la actualización ahora lleva versionCode nativo 48 y se instala como actualización real",
+    "Corregida la estructura interna del APK para que Android no lo rechace como paquete inválido",
+    "Se mantiene sin cambios la combinación de v0.8.11: simulación visual v0.8.9 + dinámicas históricas del partido",
+    "La animación sigue siendo solo visual; goles, decisiones, minijuegos, lesiones, tarjetas y cierre dependen del motor de partido",
+    "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "cd11321a1be051b99df9e5344573f7a1aafff1ef2c289657a2acaf102d4a228b",
+  "sha256": "5c97558d0acbcc1507e9367bca3210bc03b783f41d5c34bd5e09bb58029eeca8",
   "migration": true
 }
