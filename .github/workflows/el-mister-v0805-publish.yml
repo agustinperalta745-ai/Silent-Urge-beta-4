@@ -1,0 +1,113 @@
+name: Publish El Mister v0.8.5 unified match truth
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0805-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Regression tests — goals and minigames
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0805/match-truth-minigames.js
+          node el-mister/release/v0805/test-match-truth-minigames.js
+
+      - name: Assemble v0.8.5 from published v0.8.4
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0805
+          mkdir -p /tmp/v0805/work/assets /tmp/v0805/signature/META-INF
+          cp el-mister/source/v0804-index.html /tmp/v0805/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0805/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.4';" not in s or 'const VERSION_CODE=40;' not in s:
+              raise SystemExit('v0.8.4 markers not found')
+          s=s.replace("const VERSION='0.8.4';", "const VERSION='0.8.5';", 1)
+          s=s.replace('const VERSION_CODE=40;', 'const VERSION_CODE=41;', 1)
+          patch=Path('el-mister/release/v0805/match-truth-minigames.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0805/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0805/full.js
+          grep -q "const VERSION='0.8.5'" /tmp/v0805/index.html
+          grep -q 'em805QueueGoal' /tmp/v0805/index.html
+          grep -q 'em805BarParams' /tmp/v0805/index.html
+          grep -q 'em804StageScenario' /tmp/v0805/index.html
+          grep -q 'em803Create' /tmp/v0805/index.html
+          grep -q 'launch79mini' /tmp/v0805/index.html
+          grep -q 'MOTOR 2D' /tmp/v0805/index.html
+
+      - name: Rebuild and verify signed APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0805/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0805/work/classes.dex
+          cp /tmp/v0805/index.html /tmp/v0805/work/assets/index.html
+          cd /tmp/v0805/work
+          zip -q -r /tmp/v0805/El-Mister-v0.8.5.apk .
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0805-signed/MANIFEST.MF.b64" > /tmp/v0805/signature/META-INF/MANIFEST.MF
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0805-signed/ELMISTER.SF.b64" > /tmp/v0805/signature/META-INF/ELMISTER.SF
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0805-signed/ELMISTER.RSA.b64" > /tmp/v0805/signature/META-INF/ELMISTER.RSA
+          cd /tmp/v0805/signature
+          zip -q -g -r /tmp/v0805/El-Mister-v0.8.5.apk META-INF
+          unzip -t /tmp/v0805/El-Mister-v0.8.5.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0805/El-Mister-v0.8.5.apk | tee /tmp/v0805/jarverify.txt
+          grep -q 'jar verified' /tmp/v0805/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0805/expected.fp
+          keytool -printcert -jarfile /tmp/v0805/El-Mister-v0.8.5.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0805/actual.fp
+          diff -u /tmp/v0805/expected.fp /tmp/v0805/actual.fp
+          unzip -p /tmp/v0805/El-Mister-v0.8.5.apk assets/index.html | grep -q "const VERSION='0.8.5'"
+          unzip -p /tmp/v0805/El-Mister-v0.8.5.apk assets/index.html | grep -q 'em805QueueGoal'
+          unzip -p /tmp/v0805/El-Mister-v0.8.5.apk assets/index.html | grep -q 'em805BarParams'
+          unzip -p /tmp/v0805/El-Mister-v0.8.5.apk assets/index.html | grep -q 'em804StageScenario'
+          unzip -p /tmp/v0805/El-Mister-v0.8.5.apk assets/index.html | grep -q 'launch79mini'
+
+      - name: Publish updater release
+        run: |
+          set -euo pipefail
+          cp /tmp/v0805/El-Mister-v0.8.5.apk el-mister/El-Mister-v0.8.5.apk
+          cp /tmp/v0805/index.html el-mister/source/v0805-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.5.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 41,
+            "versionName": "0.8.5",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.5.apk",
+            "mandatory": false,
+            "changes": [
+              "Marcador, eventos y cancha quedan coordinados: ningún gol normal puede aparecer mientras la pelota está en otra zona",
+              "Si una lógica de partido genera un gol fuera de la jugada visible, primero se representa el remate y la pelota entrando, recién después cambia el marcador y hay saque del medio",
+              "Se mantienen las escenas coherentes de decisiones de la 0.8.4: remates, centros, penales, tiros libres, córners, mano a mano, salida bajo presión y situaciones defensivas",
+              "La barrita de timing tiene menos margen y mayor velocidad, ajustándose a dificultad, importancia del partido y habilidad del jugador",
+              "Los minijuegos de pase filtrado, salida bajo presión, centros/memoria y mano a mano también suben un escalón de dificultad sin volverse frustrantes",
+              "Se eliminan de la resolución del remate los porcentajes visibles de probabilidad; la lógica sigue siendo interna",
+              "El movimiento normal, los pases y las físicas del Motor 2D no fueron modificados"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.5.apk el-mister/latest.json el-mister/source/v0805-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.5 unified match truth and minigames'
+          git push origin HEAD:el-mister-updates
