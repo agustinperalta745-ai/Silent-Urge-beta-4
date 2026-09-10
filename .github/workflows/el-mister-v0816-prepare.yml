@@ -1,0 +1,128 @@
+name: Prepare El Mister v0.8.16 packaging integrity fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0816-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.8.16 payload without gameplay changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0816 && mkdir -p /tmp/v0816/work/assets /tmp/v0816/out el-mister/release/v0816-prep
+
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('el-mister/source/v0815-index.html').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.15';" in s
+          assert 'const VERSION_CODE=51;' in s
+          assert "goalVisual:'continuous-before-score'" in s
+          assert "interventions:'historical-minimum-two'" in s
+          s=s.replace("const VERSION='0.8.15';","const VERSION='0.8.16';",1)
+          s=s.replace('const VERSION_CODE=51;','const VERSION_CODE=52;',1)
+          Path('/tmp/v0816/index.html').write_text(s,encoding='utf-8')
+          Path('/tmp/v0816/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+
+          node --check /tmp/v0816/full.js
+          node el-mister/release/v0809/test-animation-truth.js
+
+          # Native manifest: package unchanged, versionCode only 51 -> 52.
+          base64 -d el-mister/source/v0815-AndroidManifest.xml.b64 > /tmp/v0816/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p=Path('/tmp/v0816/AndroidManifest.xml'); b=bytearray(p.read_bytes())
+          pos=8; strings=[]; changed=False; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': struct.pack_into('<I',b,ap+16,52); changed=True
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert changed and package=='com.elmister.carrera',(changed,package)
+          p.write_bytes(b)
+          PY
+
+          # Wrapper: unique filename AND repair the DEX header after the byte patch.
+          base64 -d el-mister/source/v0815-classes.dex.b64 > /tmp/v0816/classes.dex
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+          p=Path('/tmp/v0816/classes.dex'); b=bytearray(p.read_bytes())
+          old=b'El-Mister-upd815.apk'; new=b'El-Mister-upd816.apk'
+          assert len(old)==len(new) and old in b and new not in b
+          b=bytearray(bytes(b).replace(old,new,1))
+          # DEX header: signature = SHA1 bytes[32:], checksum = Adler32 bytes[12:].
+          b[12:32]=hashlib.sha1(b[32:]).digest()
+          struct.pack_into('<I',b,8,zlib.adler32(b[12:]) & 0xffffffff)
+          p.write_bytes(b)
+          # Regression guard: reject any DEX with stale internal integrity fields.
+          chk=struct.unpack_from('<I',b,8)[0]
+          sig=bytes(b[12:32])
+          assert sig==hashlib.sha1(b[32:]).digest(), 'DEX SHA-1 mismatch'
+          assert chk==(zlib.adler32(b[12:]) & 0xffffffff), 'DEX Adler32 mismatch'
+          assert new in b and old not in b
+          print('DEX header integrity: OK')
+          PY
+
+          cp /tmp/v0816/AndroidManifest.xml /tmp/v0816/work/AndroidManifest.xml
+          cp /tmp/v0816/classes.dex /tmp/v0816/work/classes.dex
+          cp /tmp/v0816/index.html /tmp/v0816/work/assets/index.html
+          (cd /tmp/v0816/work && zip -q -D /tmp/v0816/out/unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0816/out/unsigned.apk >/dev/null
+
+      - name: Produce byte exact signing metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0816/out/dummy.apk /tmp/v0816/out/unsigned.apk dummy >/dev/null 2>&1
+          unzip -p /tmp/v0816/out/dummy.apk META-INF/MANIFEST.MF | base64 -w0 > el-mister/release/v0816-prep/MANIFEST.MF.b64
+          unzip -p /tmp/v0816/out/dummy.apk META-INF/DUMMY.SF | base64 -w0 > el-mister/release/v0816-prep/ELMISTER.SF.b64
+          base64 -w0 /tmp/v0816/AndroidManifest.xml > el-mister/source/v0816-AndroidManifest.xml.b64
+          base64 -w0 /tmp/v0816/classes.dex > el-mister/source/v0816-classes.dex.b64
+          cp /tmp/v0816/index.html el-mister/source/v0816-index.html
+
+      - name: Commit prepared source and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v0816-prep el-mister/source/v0816-index.html el-mister/source/v0816-AndroidManifest.xml.b64 el-mister/source/v0816-classes.dex.b64
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.16 packaging payload'
+          git push origin HEAD:el-mister-updates
