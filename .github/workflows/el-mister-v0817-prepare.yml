@@ -19,96 +19,48 @@ jobs:
           ref: el-mister-updates
           fetch-depth: 0
 
-      - name: Build v0.8.17 with scenario-preserving fallback
+      - name: Patch gameplay payload without changing historical decisions
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf /tmp/v0817 && mkdir -p /tmp/v0817/work/assets /tmp/v0817/out el-mister/release/v0817-prep
-
+          rm -rf /tmp/v0817
+          mkdir -p /tmp/v0817/work/assets /tmp/v0817/out el-mister/release/v0817-prep
           python3 - <<'PY'
           from pathlib import Path
-
-          src=Path('el-mister/source/v0816-index.html')
-          s=src.read_text(encoding='utf-8')
+          s=Path('el-mister/source/v0816-index.html').read_text(encoding='utf-8')
           assert "const VERSION='0.8.16';" in s
           assert 'const VERSION_CODE=52;' in s
           assert "goalVisual:'continuous-before-score'" in s
           assert "interventions:'historical-minimum-two'" in s
-
-          old="""  function resumeAfterRenderFailure(l,err){
-    console.error('em814 decision render',err);
-    try{l.scenario=null;save()}catch(e){}
-    try{if(typeof toast==='function')toast('No se pudo abrir la situación. El partido continúa.')}catch(e){}
-    setTimeout(()=>{try{if(S.live&&typeof em80RenderMatch==='function')em80RenderMatch();else if(typeof v06RenderMatchHub==='function')v06RenderMatchHub()}catch(e){console.error('em814 resume',e)}},80)
-  }
-"""
-
-          new="""  function resumeAfterRenderFailure(l,err){
-    console.error('em817 decision render fallback',err);
-    if(!l)return false;
-    try{if(typeof em80Stop==='function')em80Stop()}catch(e){}
-
-    // CRITICAL: a visual/rendering failure must NEVER consume or clear the
-    // historical gameplay situation. Keep the same scenario pending and show
-    // it without optional pitch/context decoration.
-    const s=l.scenario;
-    if(!validScenario(s)){
-      console.error('em817 fallback has no valid pending scenario');
-      try{
-        if(typeof openModal==='function')openModal(`<div class=\"liveHead\"><div class=\"minute\">${l.minute||0}' · PARTIDO DETENIDO</div><div class=\"liveScore\">${l.gh||0} – ${l.ga||0}</div></div><h2>La situación sigue pendiente</h2><p>No se pudo preparar la tarjeta de decisión. El partido queda pausado para no saltear la jugada.</p><button class=\"primary\" onclick=\"em80PauseForDecision()\">Reintentar situación</button>`);
-      }catch(e){console.error('em817 retry modal',e)}
-      return false;
-    }
-
-    try{save()}catch(e){}
-    const canSub=canSubNow(l);
-    const cls=s.kind==='keyplay'?'keyplay':s.kind==='rare'?'rare':'';
-    const label=s.kind==='rare'?'EN CANCHA':s.kind==='keyplay'?'JUGADA CLAVE':'LECTURA DEL PARTIDO';
-    const pill=s.kind==='rare'?'bad':s.kind==='keyplay'?'warn':'';
-    const html=`<div class=\"liveHead\"><div class=\"row between\"><span class=\"minute\">${l.minute}' · INTERVENCIÓN ${l.pauseCount||l.stopIndex+1}</span><span class=\"pill ${pill}\">${label}</span></div><div class=\"liveScore\">${l.gh} – ${l.ga}</div></div><div class=\"v0712Paused\">La jugada queda detenida hasta que tomes una decisión.</div><h2>${s.t}</h2><p>${s.d||''}</p>${s.o.map((o,i)=>`<button class=\"choice ${cls}\" onclick=\"resolveMatchChoice(${i})\"><b>${o.t}</b><span>${o.h||''}</span></button>`).join('')}<div style=\"height:8px\"></div>${canSub?'<button class=\"secondary\" onclick=\"v062OpenSubsFromDecision()\">🔄 Hacer cambio</button><div class=\"small muted center\" style=\"margin-top:9px\">La decisión sigue pendiente mientras hacés la sustitución.</div>':''}`;
-
-    try{
-      if(typeof openModal==='function'){
-        openModal(html);
-      }else{
-        const root=document.getElementById('modalRoot');
-        if(!root)throw new Error('modalRoot missing');
-        root.innerHTML=`<div class=\"modalBg\"><div class=\"modal\">${html}</div></div>`;
-      }
-      return true;
-    }catch(e){
-      console.error('em817 safe decision modal failed',e);
-      try{
-        const root=document.getElementById('modalRoot');
-        if(root){root.innerHTML=`<div class=\"modalBg\"><div class=\"modal\">${html}</div></div>`;return true}
-      }catch(e2){console.error('em817 direct modal failed',e2)}
-      return false;
-    }
-  }
-"""
-
-          assert old in s, 'expected v0.8.14 render-failure bridge not found'
-          s=s.replace(old,new,1)
+          old_clear="try{l.scenario=null;save()}catch(e){}"
+          old_toast="try{if(typeof toast==='function')toast('No se pudo abrir la situación. El partido continúa.')}catch(e){}"
+          old_resume="setTimeout(()=>{try{if(S.live&&typeof em80RenderMatch==='function')em80RenderMatch();else if(typeof v06RenderMatchHub==='function')v06RenderMatchHub()}catch(e){console.error('em814 resume',e)}},80)"
+          assert old_clear in s and old_toast in s and old_resume in s
+          s=s.replace(old_clear,"try{save()}catch(e){}",1)
+          s=s.replace(old_toast,"try{if(typeof em817SafeDecisionFallback==='function'&&em817SafeDecisionFallback(l))return true}catch(e){console.error('em817 fallback call',e)}",1)
+          s=s.replace(old_resume,"return false",1)
+          helper="function em817SafeDecisionFallback(l){if(!l)return false;try{if(typeof em80Stop==='function')em80Stop()}catch(e){}const s=l.scenario;if(!(s&&s.t&&Array.isArray(s.o)&&s.o.length)){console.error('em817 fallback: invalid pending scenario');return false}try{save()}catch(e){}const canSub=!!(l.subsUsed<5&&(l.minute===45||l.activeSubWindowMinute===l.minute||l.subWindows<3));const cls=s.kind==='keyplay'?'keyplay':s.kind==='rare'?'rare':'';const label=s.kind==='rare'?'EN CANCHA':s.kind==='keyplay'?'JUGADA CLAVE':'LECTURA DEL PARTIDO';const pill=s.kind==='rare'?'bad':s.kind==='keyplay'?'warn':'';const html=`<div class=\"liveHead\"><div class=\"row between\"><span class=\"minute\">${l.minute}' · INTERVENCIÓN ${l.pauseCount||l.stopIndex+1}</span><span class=\"pill ${pill}\">${label}</span></div><div class=\"liveScore\">${l.gh} – ${l.ga}</div></div><div class=\"v0712Paused\">La jugada queda detenida hasta que tomes una decisión.</div><h2>${s.t}</h2><p>${s.d||''}</p>${s.o.map((o,i)=>`<button class=\"choice ${cls}\" onclick=\"resolveMatchChoice(${i})\"><b>${o.t}</b><span>${o.h||''}</span></button>`).join('')}<div style=\"height:8px\"></div>${canSub?'<button class=\"secondary\" onclick=\"v062OpenSubsFromDecision()\">🔄 Hacer cambio</button><div class=\"small muted center\" style=\"margin-top:9px\">La decisión sigue pendiente mientras hacés la sustitución.</div>':''}`;try{if(typeof openModal==='function'){openModal(html);return true}const r=document.getElementById('modalRoot');if(!r)return false;r.innerHTML=`<div class=\"modalBg\"><div class=\"modal\">${html}</div></div>`;return true}catch(e){console.error('em817 safe decision modal',e);try{const r=document.getElementById('modalRoot');if(r){r.innerHTML=`<div class=\"modalBg\"><div class=\"modal\">${html}</div></div>`;return true}}catch(e2){console.error('em817 direct decision modal',e2)}return false}}"
+          s=s.replace('</script>',helper+'\n</script>',1)
           s=s.replace("const VERSION='0.8.16';","const VERSION='0.8.17';",1)
           s=s.replace('const VERSION_CODE=52;','const VERSION_CODE=53;',1)
-
-          # Regression guards: the old destructive fallback must be gone while
-          # all pre-existing historical gameplay markers remain untouched.
           assert "toast('No se pudo abrir la situación. El partido continúa.')" not in s
-          assert "console.error('em817 decision render fallback'" in s
+          assert old_clear not in s
+          assert old_resume not in s
+          assert 'function em817SafeDecisionFallback' in s
           assert "goalVisual:'continuous-before-score'" in s
           assert "interventions:'historical-minimum-two'" in s
           assert 'renderLiveDecision=renderHistoricalDecision;' in s
           assert 'l.scenario=makeMatchScenario(l.stopIndex)' in s
-
           Path('/tmp/v0817/index.html').write_text(s,encoding='utf-8')
           Path('/tmp/v0817/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
           PY
-
           node --check /tmp/v0817/full.js
           node el-mister/release/v0809/test-animation-truth.js
 
-          # Native manifest: package unchanged, versionCode only 52 -> 53.
+      - name: Prepare native wrapper v0.8.17
+        shell: bash
+        run: |
+          set -euo pipefail
           base64 -d el-mister/source/v0816-AndroidManifest.xml.b64 > /tmp/v0817/AndroidManifest.xml
           python3 - <<'PY'
           from pathlib import Path
@@ -143,8 +95,6 @@ jobs:
           assert changed and package=='com.elmister.carrera',(changed,package)
           p.write_bytes(b)
           PY
-
-          # Wrapper: updater filename 816 -> 817; repair DEX integrity fields.
           base64 -d el-mister/source/v0816-classes.dex.b64 > /tmp/v0817/classes.dex
           python3 - <<'PY'
           from pathlib import Path
@@ -156,21 +106,17 @@ jobs:
           b[12:32]=hashlib.sha1(b[32:]).digest()
           struct.pack_into('<I',b,8,zlib.adler32(b[12:]) & 0xffffffff)
           p.write_bytes(b)
-          chk=struct.unpack_from('<I',b,8)[0]
-          sig=bytes(b[12:32])
-          assert sig==hashlib.sha1(b[32:]).digest(), 'DEX SHA-1 mismatch'
-          assert chk==(zlib.adler32(b[12:]) & 0xffffffff), 'DEX Adler32 mismatch'
+          assert bytes(b[12:32])==hashlib.sha1(b[32:]).digest()
+          assert struct.unpack_from('<I',b,8)[0]==(zlib.adler32(b[12:]) & 0xffffffff)
           assert new in b and old not in b
-          print('DEX header integrity: OK')
           PY
-
           cp /tmp/v0817/AndroidManifest.xml /tmp/v0817/work/AndroidManifest.xml
           cp /tmp/v0817/classes.dex /tmp/v0817/work/classes.dex
           cp /tmp/v0817/index.html /tmp/v0817/work/assets/index.html
           (cd /tmp/v0817/work && zip -q -D /tmp/v0817/out/El-Mister-v0.8.17-unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
           unzip -t /tmp/v0817/out/El-Mister-v0.8.17-unsigned.apk >/dev/null
 
-      - name: Produce exact signing preparation metadata
+      - name: Produce signing preparation metadata
         shell: bash
         run: |
           set -euo pipefail
