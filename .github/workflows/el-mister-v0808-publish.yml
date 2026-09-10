@@ -1,0 +1,22 @@
+name: Publish El Mister v0.8.8 match ending fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0808-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Rebuild verify and publish v0.8.8
+        run: bash el-mister/release/v0808/publish.sh
