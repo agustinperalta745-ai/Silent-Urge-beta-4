@@ -43,9 +43,9 @@ base64 -d el-mister/release/v0810-signed/MANIFEST.MF.b64 > /tmp/v0810pub/signatu
 base64 -d el-mister/release/v0810-signed/ELMISTER.SF.b64 > /tmp/v0810pub/signature/META-INF/ELMISTER.SF
 base64 -d el-mister/release/v0810-signed/ELMISTER.RSA.b64 > /tmp/v0810pub/signature/META-INF/ELMISTER.RSA
 
-echo '683fa247b9c889006cf05d3d1857c079cd28df71f7c794f648ac603ee961d60a  /tmp/v0810pub/signature/META-INF/MANIFEST.MF' | sha256sum -c -
-echo 'e86ee2fb8e4da3d3a2f6a377265a45a2e3571b775e51705dd59961c9fc04a06c  /tmp/v0810pub/signature/META-INF/ELMISTER.SF' | sha256sum -c -
-echo '2aa666587c9d2dde17296f3bc1698790632cd7c254c98f1faf8e3b671b6066de  /tmp/v0810pub/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+echo '53228154d73df1cd53245ffa0077e7625ea9a0f79b88f64f656541deb6f8329e  /tmp/v0810pub/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+echo 'b75c051f29953be9b13214aac0434ae9a2fe1487bfb8515e99d9c5f32a5c298c  /tmp/v0810pub/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+echo '91a01e36d671dda89b0d9ed6a8bd28e949b9bb9cd204ed265b9a7b08ee5d8dcc  /tmp/v0810pub/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
 
 (cd /tmp/v0810pub/signature && zip -q -g -r /tmp/v0810pub/El-Mister-v0.8.10.apk META-INF)
 unzip -t /tmp/v0810pub/El-Mister-v0.8.10.apk >/dev/null
