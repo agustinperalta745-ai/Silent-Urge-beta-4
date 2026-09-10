@@ -1,0 +1,67 @@
+name: Build El Mister v0.8.4 scene sync
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0804-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Regression tests — scene sync only
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0804/scene-sync.js
+          node el-mister/release/v0804/test-scene-sync.js
+      - name: Assemble v0.8.4 from published v0.8.3
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0804 && mkdir -p /tmp/v0804/work/assets
+          cp el-mister/source/v0803-index.html /tmp/v0804/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0804/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.3';" not in s or 'const VERSION_CODE=39;' not in s:
+              raise SystemExit('v0.8.3 markers not found')
+          s=s.replace("const VERSION='0.8.3';", "const VERSION='0.8.4';", 1)
+          s=s.replace('const VERSION_CODE=39;', 'const VERSION_CODE=40;', 1)
+          fix=Path('el-mister/release/v0804/scene-sync.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+fix+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0804/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0804/full.js
+          grep -q "const VERSION='0.8.4'" /tmp/v0804/index.html
+          grep -q 'const VERSION_CODE=40' /tmp/v0804/index.html
+          grep -q 'em804StageScenario' /tmp/v0804/index.html
+          grep -q 'em804PendingGoal' /tmp/v0804/index.html
+          grep -q 'em801Kickoff' /tmp/v0804/index.html
+          grep -q 'em803Create' /tmp/v0804/index.html
+          grep -q 'launch79mini' /tmp/v0804/index.html
+          grep -q 'MOTOR 2D' /tmp/v0804/index.html
+      - name: Build unsigned APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0804/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0804/work/classes.dex
+          cp /tmp/v0804/index.html /tmp/v0804/work/assets/index.html
+          cd /tmp/v0804/work
+          zip -q -r /tmp/v0804/El-Mister-v0.8.4-unsigned.apk .
+          unzip -t /tmp/v0804/El-Mister-v0.8.4-unsigned.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0804-unsigned
+          path: /tmp/v0804/El-Mister-v0.8.4-unsigned.apk
+          retention-days: 3
