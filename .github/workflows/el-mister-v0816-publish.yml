@@ -1,0 +1,137 @@
+name: Publish El Mister v0.8.16 repaired APK
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0816-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Rebuild, deeply verify and publish v0.8.16
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0816pub && mkdir -p /tmp/v0816pub/final/META-INF /tmp/v0816pub/final/assets
+
+          cp el-mister/source/v0816-index.html /tmp/v0816pub/final/assets/index.html
+          base64 -d el-mister/source/v0816-AndroidManifest.xml.b64 > /tmp/v0816pub/final/AndroidManifest.xml
+          base64 -d el-mister/source/v0816-classes.dex.b64 > /tmp/v0816pub/final/classes.dex
+          base64 -d el-mister/release/v0816-signed/MANIFEST.MF.b64 > /tmp/v0816pub/final/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0816-signed/ELMISTER.SF.b64 > /tmp/v0816pub/final/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0816-signed/ELMISTER.RSA.b64 > /tmp/v0816pub/final/META-INF/ELMISTER.RSA
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+          dex=Path('/tmp/v0816pub/final/classes.dex').read_bytes()
+          assert dex[:4]==b'dex\n', dex[:8]
+          expected_sig=hashlib.sha1(dex[32:]).digest()
+          expected_chk=zlib.adler32(dex[12:]) & 0xffffffff
+          actual_sig=dex[12:32]
+          actual_chk=struct.unpack_from('<I',dex,8)[0]
+          assert actual_sig==expected_sig, 'DEX SHA-1 mismatch'
+          assert actual_chk==expected_chk, 'DEX Adler32 mismatch'
+          assert b'El-Mister-upd816.apk' in dex and b'El-Mister-upd815.apk' not in dex
+          print('DEX SHA-1: OK')
+          print('DEX Adler32: OK')
+
+          s=Path('/tmp/v0816pub/final/assets/index.html').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.16';" in s
+          assert 'const VERSION_CODE=52;' in s
+          assert "goalVisual:'continuous-before-score'" in s
+          assert "interventions:'historical-minimum-two'" in s
+          print('Gameplay payload preserved from v0.8.15: OK')
+
+          b=bytearray(Path('/tmp/v0816pub/final/AndroidManifest.xml').read_bytes())
+          pos=8; strings=[]; native=None; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': native=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera',package
+          assert native==52,native
+          print('Android package/versionCode:',package,native)
+          PY
+
+          (cd /tmp/v0816pub/final && zip -q -D /tmp/v0816pub/El-Mister-v0.8.16.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0816pub/El-Mister-v0.8.16.apk >/dev/null
+
+          jarsigner -verify -verbose -certs /tmp/v0816pub/El-Mister-v0.8.16.apk | tee /tmp/v0816pub/jarverify.txt
+          grep -q 'jar verified' /tmp/v0816pub/jarverify.txt
+          if grep -q 'internal inconsistencies' /tmp/v0816pub/jarverify.txt; then exit 1; fi
+
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0816pub/expected.fp
+          keytool -printcert -jarfile /tmp/v0816pub/El-Mister-v0.8.16.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0816pub/actual.fp
+          diff -u /tmp/v0816pub/expected.fp /tmp/v0816pub/actual.fp
+
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER=$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner 2>/dev/null | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs /tmp/v0816pub/El-Mister-v0.8.16.apk | tee /tmp/v0816pub/apkverify.txt
+          grep -q '^Verifies$' /tmp/v0816pub/apkverify.txt
+
+          cp /tmp/v0816pub/El-Mister-v0.8.16.apk el-mister/El-Mister-v0.8.16.apk
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.16.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          from pathlib import Path
+          import json,sys
+          sha=sys.argv[1]
+          p=Path('el-mister/latest.json')
+          old=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+          data={
+            'versionCode':52,
+            'versionName':'0.8.16',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.16.apk',
+            'mandatory':False,
+            'changes':[
+              'Corrección exclusiva del paquete Android: reparados SHA-1 y Adler32 internos de classes.dex después de cambiar el nombre del APK del actualizador',
+              'Se mantiene exactamente la jugabilidad y simulación preparada en v0.8.15',
+              'El paquete conserva com.elmister.carrera y la misma firma de El Míster',
+              'Agregada validación automática de integridad DEX para impedir repetir este error',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':old.get('onlineUrl','https://el-mister-online.agustinperalta745.workers.dev'),
+            'sha256':sha,
+            'migration':True
+          }
+          p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.16.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.16 repaired Android package'
+          git push origin HEAD:el-mister-updates
