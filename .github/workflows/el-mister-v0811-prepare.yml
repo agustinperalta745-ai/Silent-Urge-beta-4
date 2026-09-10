@@ -1,4 +1,4 @@
-name: Prepare El Mister v0.8.11 latest visual + legacy dynamics
+name: Prepare El Mister v0.8.11 latest visual and legacy dynamics
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/el-mister-v0811-prepare.yml'
       - 'el-mister/release/v0811/legacy-dynamics-bridge.js'
+      - 'el-mister/release/v0811/legacy-snapshot.js'
   workflow_dispatch:
 
 permissions:
@@ -35,20 +36,7 @@ jobs:
           s=s.replace('const VERSION_CODE=45;','const VERSION_CODE=47;',1)
           marker='/* ===== El Míster v0.7.12 · cancha animada + intervenciones automáticas ===== */'
           assert marker in s
-          capture=r'''
-/* ===== v0.8.11 · snapshot de la dinámica exacta anterior a la pantalla nueva ===== */
-(function(){
-  const names=[
-    'simulateSegment','v062ShouldPause','makeMatchScenario','makeKeyPlay','makeRareEvent','resolveMatchChoice',
-    'v062Difficulty','v062DifficultyHtml','v062FinishMiniDecision',
-    'v067ShotAim','v067StopShot','intro79','launch79mini','track79start','anim79track','stop79track',
-    'lane79start','render79lane','pick79lane','mem79start','pick79mem','keeper79start','pick79keeper','mini79done'
-  ];
-  const bag={};
-  for(const n of names){try{const f=eval(n);if(typeof f==='function')bag[n]=f}catch(e){console.warn('em811 capture missing',n)}}
-  window.EM811_LEGACY=bag;
-})();
-'''
+          capture=Path('el-mister/release/v0811/legacy-snapshot.js').read_text(encoding='utf-8')
           s=s.replace(marker,capture+'\n'+marker,1)
           bridge=Path('el-mister/release/v0811/legacy-dynamics-bridge.js').read_text(encoding='utf-8')
           head,tail=s.rsplit('</script>',1)
