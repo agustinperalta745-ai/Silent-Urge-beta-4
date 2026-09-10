@@ -1,0 +1,34 @@
+function v0714SegmentClear(team,a,b,l=S.live){let opp=v0714Slots(team!=='us',l),vx=b.x-a.x,vy=b.y-a.y,len2=vx*vx+vy*vy||1,min=99;for(let q of opp){let t=clamp(((q.x-a.x)*vx+(q.y-a.y)*vy)/len2,.08,.92),px=a.x+t*vx,py=a.y+t*vy;min=Math.min(min,Math.hypot(q.x-px,q.y-py))}return min}
+function v0714Receiver(team,idx,l=S.live,mode='normal'){
+ let slots=v0714Slots(team==='us',l),from=slots[idx]||slots[5],dir=v0714Dir(team),phase=v0714Phase(team,l),carrierPos=from.pos;
+ let list=slots.map((q,i)=>{if(i===idx)return null;let d=Math.hypot(q.x-from.x,q.y-from.y),prog=(q.y-from.y)*dir,clear=v0714SegmentClear(team,from,q,l),score=0;if(d<7||d>48)score-=25;else score+=22-Math.abs(d-22)*.45;score+=prog*(phase==='build'?.62:phase==='middle'?.48:.22);score+=Math.min(8,clear*1.15);if(q.pos==='ARQ')score-=phase==='build'?5:30;if(mode==='switch')score+=Math.abs(q.x-from.x)*.55;if(mode==='through')score+=['DC','EI','ED','MCO'].includes(q.pos)?13:-4;if(phase==='final'&&['DC','MCO','EI','ED'].includes(q.pos))score+=6;if((carrierPos==='LI'||carrierPos==='LD')&&phase==='middle'&&['EI','ED','MCO'].includes(q.pos))score+=5;score+=Math.random()*4;return{i,score,q}}).filter(Boolean).sort((a,b)=>b.score-a.score);
+ return list[0]?.i??idx
+}
+function v0714StartAction(type,data={},l=S.live){
+ let v=v0714State(l);if(!v)return;let team=data.team||v.poss,fromIdx=data.fromIdx??v.carrier,from=v0714Point(team,fromIdx,l),dur=data.duration||650,point=data.point||from;
+ v.action={type,team,fromIdx,started:Date.now(),endAt:Date.now()+dur,point,after:data.after||null,intended:data.intended??null,interceptor:data.interceptor||null,engineGoal:!!data.engineGoal,outcome:data.outcome||null};v.lastAction=type;v.side=point.x<36?'left':point.x>64?'right':'center';v.sequence=(v.sequence||0)+1;v0714SetBall(point.x,point.y,dur/1000)
+}
+function v0714FinishAction(l=S.live){
+ let v=v0714State(l),a=v?.action;if(!a)return false;if(Date.now()<a.endAt)return true;v.action=null;
+ if(a.after){v.poss=a.after.team;v.carrier=a.after.idx;let p=v0714Point(v.poss,v.carrier,l);v.ball={x:p.x,y:p.y}}
+ else if(a.interceptor){v.poss=a.interceptor.team;v.carrier=a.interceptor.idx;v.ball={...a.point}}
+ else v.ball={...a.point};
+ v.nextActionAt=Date.now()+430+Math.random()*520;return false
+}
+function v0714Turnover(team,idx,intended,l=S.live){
+ let other=team==='us'?'them':'us',from=v0714Point(team,idx,l),to=v0714Point(team,intended,l),t=.42+.16*Math.random(),point={x:v0714Blend(from.x,to.x,t),y:v0714Blend(from.y,to.y,t)},inter=v0714Nearest(other,point,l),name=v0714Name(team,idx,l),otherName=v0714Name(other,inter.i,l);
+ v0714Comment(team==='us'?`${name} intenta el pase, pero ${otherName.toLowerCase()} se mete en la línea y lo intercepta.`:`El rival busca un pase vertical, pero tu equipo lee la trayectoria y corta.`,0,l);
+ v0714StartAction('intercept',{team,fromIdx:idx,point,interceptor:{team:other,idx:inter.i},intended,duration:560},l)
+}
+function v0714Pass(team,idx,to,l=S.live,kind='pass'){
+ let from=v0714Point(team,idx,l),dest=v0714Point(team,to,l),clear=v0714SegmentClear(team,from,dest,l),quality=v0714Quality(team,idx,'passing',l),dist=Math.hypot(dest.x-from.x,dest.y-from.y),press=l.context?.pressHigh&&team==='them',risk=.045+Math.max(0,5.7-clear)*.022+Math.max(0,dist-30)*.0022+(kind==='through'?.045:0)-(quality-65)*.0015+(press?.02:0);risk=clamp(risk,.025,.29);
+ if(Math.random()<risk)return v0714Turnover(team,idx,to,l);
+ let a=v0714Name(team,idx,l),b=v0714Name(team,to,l);v0714Comment(team==='us'?(kind==='switch'?`${a} cambia de frente y encuentra a ${b} con campo.`:kind==='through'?`${a} mete un pase vertical para la ruptura de ${b}.`:`${a} toca con ${b} y ofrece una línea de apoyo.`):kind==='through'?'El rival filtra una pelota entre líneas.':'El rival mueve la pelota buscando sacar a tu bloque de lugar.',0,l);
+ v0714StartAction(kind,{team,fromIdx:idx,point:dest,after:{team,idx:to},intended:to,duration:kind==='switch'?760:kind==='through'?620:520},l)
+}
+function v0714Carry(team,idx,l=S.live){let v=v0714State(l),from=v0714Point(team,idx,l),dir=v0714Dir(team),q=v0714Base(team)[idx]||{pos:'MC'},wide=from.x<27||from.x>73,step=q.pos==='DC'?4:q.pos==='EI'||q.pos==='ED'||q.pos==='LI'||q.pos==='LD'?6:5,point={x:clamp(from.x+(wide?(50-from.x)*.035:(Math.random()-.5)*4),5,95),y:clamp(from.y+dir*step,5,95)},name=v0714Name(team,idx,l);v.runner=null;v0714Comment(team==='us'?`${name} conduce ${wide?'por la banda':'hacia adelante'} y obliga a una marca a salir.`:'El portador rival avanza y tu mediocampo retrocede manteniendo las distancias.',0,l);v0714StartAction('carry',{team,fromIdx:idx,point,after:{team,idx},duration:600},l)}
+function v0714Run(team,idx,target,l=S.live){let v=v0714State(l);v.runner={team,idx,x:target.x,y:target.y};v.runnerUntil=Date.now()+1700;let e=document.getElementById(team==='us'?'v0712u'+idx:'v0712o'+idx);if(e)e.classList.add('v0714Runner')}
+function v0714Cross(team,idx,l=S.live,cutback=false){let from=v0714Point(team,idx,l),dir=v0714Dir(team),boxY=team==='us'?15:85,point={x:cutback?50:(from.x<50?60:40),y:cutback?(team==='us'?25:75):boxY},target=v0714Nearest(team,point,l,['DC','MCO','EI','ED','MC']),name=v0714Name(team,idx,l);v0714Run(team,target.i,{x:point.x,y:point.y+dir*-1},l);v0714Comment(team==='us'?(cutback?`${name} llega al fondo y juega el pase atrás hacia el punto penal.`:`${name} levanta la cabeza y mete el centro al área.`):(cutback?'El rival gana la línea de fondo y tira el pase atrás.':'Centro rival al área: tus centrales retroceden para atacar la pelota.'),0,l);v0714StartAction(cutback?'cutback':'cross',{team,fromIdx:idx,point,after:{team,idx:target.i},duration:680},l);let v=v0714State(l);v.nextActionAt=Date.now()+780}
+function v0714Shot(team,idx,l=S.live,engineGoal=false){let from=v0714Point(team,idx,l),goalY=team==='us'?1.2:98.8,quality=v0714Quality(team,idx,'finishing',l),central=Math.abs(from.x-50),blocked=Math.random()<clamp(.23+(central>23?.06:0)-(quality-65)*.001,.12,.35),saved=!blocked&&Math.random()<.55,point;
+ if(engineGoal){point={x:50+(Math.random()-.5)*15,y:goalY};v0714Comment(team==='us'?`¡Remate de ${v0714Name(team,idx,l)}! La pelota supera al arquero y entra.`:'El rival encuentra el remate y convierte.',1900,l);return v0714StartAction('goal',{team,fromIdx:idx,point,engineGoal:true,after:{team:team==='us'?'them':'us',idx:v0714Nearest(team==='us'?'them':'us',{x:50,y:50},l,['MC','MCO','MCD','DC']).i},duration:980},l)}
+ if(blocked){let def=v0714Nearest(team==='us'?'them':'us',{x:v0714Blend(from.x,50,.45),y:v0714Blend(from.y,goalY,.45)},l,['DFC','LI','LD','MCD']),p=v0714Point(team==='us'?'them':'us',def.i,l);point={x:p.x,y:p.y};v0714Comment(team==='us'?`${v0714Name(team,idx,l)} saca el remate, pero un defensor se cruza y lo bloquea.`:'Remate rival bloqueado por tu defensa.',0,l);return v0714StartAction('shot-blocked',{team,fromIdx:idx,point,interceptor:{team:team==='us'?'them':'us',idx:def.i},duration:470},l)}
