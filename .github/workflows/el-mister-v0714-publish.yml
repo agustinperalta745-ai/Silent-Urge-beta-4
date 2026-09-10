@@ -1,0 +1,125 @@
+name: Publish El Mister v0.7.14
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0714-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Assemble v0.7.14 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0714
+          mkdir -p /tmp/v0714/work/assets /tmp/v0714/signature/META-INF
+          cat \
+            el-mister/release/v0714/part00.js \
+            el-mister/release/v0714/part01.js \
+            el-mister/release/v0714/part02.js \
+            el-mister/release/v0714/part03.js \
+            > /tmp/v0714/football-engine.js
+          node --check /tmp/v0714/football-engine.js
+          cp el-mister/source/v0713-index.html /tmp/v0714/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0714/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.13';" not in s or 'const VERSION_CODE=34;' not in s:
+              raise SystemExit('v0.7.13 version markers not found')
+          s=s.replace("const VERSION='0.7.13';", "const VERSION='0.7.14';", 1)
+          s=s.replace('const VERSION_CODE=34;', 'const VERSION_CODE=35;', 1)
+          patch=Path('/tmp/v0714/football-engine.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0714/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0714/full.js
+          grep -q "const VERSION='0.7.14'" /tmp/v0714/index.html
+          grep -q 'const VERSION_CODE=35' /tmp/v0714/index.html
+          grep -q 'function v0714Target' /tmp/v0714/index.html
+          grep -q 'function v0714Turnover' /tmp/v0714/index.html
+          grep -q 'function v0714Shot' /tmp/v0714/index.html
+          grep -q 'function v0714ShouldPause' /tmp/v0714/index.html
+          grep -q 'PARTIDO EN VIVO' /tmp/v0714/index.html
+          grep -q 'start79' /tmp/v0714/index.html
+          grep -q 'v067OffensiveScenario' /tmp/v0714/index.html
+
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0714/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0714/work/classes.dex
+          cp /tmp/v0714/index.html /tmp/v0714/work/assets/index.html
+          cd /tmp/v0714/work
+          zip -q -r /tmp/v0714/El-Mister-v0.7.14.apk .
+          unzip -t /tmp/v0714/El-Mister-v0.7.14.apk >/dev/null
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v0714-signed/MANIFEST.MF.b64 > /tmp/v0714/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0714-signed/ELMISTER.SF.b64 > /tmp/v0714/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0714-signed/ELMISTER.RSA.b64 > /tmp/v0714/signature/META-INF/ELMISTER.RSA
+          echo '88d90f925a43896169ba5d731cbdb2c255ead05be58b8e6fb6e10eacee3bb40f  /tmp/v0714/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo 'c56cde7bc0f1d87081e976e96d02b09aa980849e03695c0a4905799f9eab124b  /tmp/v0714/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '75b9a383d63cb7c26afff1d9be5d9fe68f72bbbab76cc3df80a00eb29bb9df73  /tmp/v0714/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v0714/signature
+          zip -q -g -r /tmp/v0714/El-Mister-v0.7.14.apk META-INF
+          unzip -t /tmp/v0714/El-Mister-v0.7.14.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0714/El-Mister-v0.7.14.apk | tee /tmp/v0714/jarverify.txt
+          grep -q 'jar verified' /tmp/v0714/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0714/expected.fp
+          keytool -printcert -jarfile /tmp/v0714/El-Mister-v0.7.14.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0714/actual.fp
+          diff -u /tmp/v0714/expected.fp /tmp/v0714/actual.fp
+          unzip -p /tmp/v0714/El-Mister-v0.7.14.apk assets/index.html | grep -q "const VERSION='0.7.14'"
+          unzip -p /tmp/v0714/El-Mister-v0.7.14.apk assets/index.html | grep -q 'v0714ShouldPause'
+          unzip -p /tmp/v0714/El-Mister-v0.7.14.apk assets/index.html | grep -q 'PARTIDO EN VIVO'
+
+      - name: Publish updater release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0714/El-Mister-v0.7.14.apk el-mister/El-Mister-v0.7.14.apk
+          cp /tmp/v0714/index.html el-mister/source/v0714-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.14.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 35,
+            "versionName": "0.7.14",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.14.apk",
+            "mandatory": false,
+            "changes": [
+              "La cancha deja de mover a todo el equipo como un bloque: cada posición tiene recorridos y apoyos propios según la jugada",
+              "Laterales, extremos, mediocampistas, centrales y delantero ahora reaccionan distinto en salida, progresión, último tercio y defensa",
+              "Las jugadas pueden terminar en remates, centros, pases atrás, filtrados, cambios de frente, conducciones, intercepciones, atajadas y despejes",
+              "Las pérdidas ya no parecen pases voluntarios al rival: se representan como cortes e intercepciones sobre la trayectoria",
+              "La situación visual del partido vuelve a alimentar las decisiones del DT, secuencias conectadas y minijuegos ya existentes",
+              "Se corrigió el sistema de pausas para garantizar intervenciones variables durante el partido sin volverlas cortes fijos"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.14.apk el-mister/latest.json el-mister/source/v0714-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.14 live football simulation'
+          git push origin HEAD:el-mister-updates
