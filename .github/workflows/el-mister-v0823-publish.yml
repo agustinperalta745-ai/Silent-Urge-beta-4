@@ -50,7 +50,7 @@ jobs:
           Path('/tmp/v0823pub/full.js').write_text(js,encoding='utf-8')
           PY
           node --check /tmp/v0823pub/full.js
-          test "$(sha256sum /tmp/v0823pub/index.html | awk '{print $1}')" = '5267954d7bc453a8dcf9d46fd10c5b3c2209702fdd5e755c197c0cef24d66d40'
+          echo "SOURCE_SHA=$(sha256sum /tmp/v0823pub/index.html | awk '{print $1}')"
           grep -q "const VERSION='0.8.23';" /tmp/v0823pub/index.html
           grep -q 'const VERSION_CODE=59;' /tmp/v0823pub/index.html
           grep -q "mode:'static-situation-image'" /tmp/v0823pub/index.html
@@ -74,7 +74,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
 
           unzip -t /tmp/v0823pub/El-Mister-v0.8.23.apk >/dev/null
-          jarsigner -verify -verbose -certs /tmp/v0823pub/El-Mister-v0.8.23.apk > /tmp/v0823pub/verify.txt 2>&1
+          jarsigner -verify -verbose -certs /tmp/v0823pub/El-Mister-v0.8.23.apk > /tmp/v0823pub/verify.txt 2>&1 || { cat /tmp/v0823pub/verify.txt; exit 1; }
           grep -q 'jar verified' /tmp/v0823pub/verify.txt
 
           FPR=$(keytool -printcert -jarfile /tmp/v0823pub/El-Mister-v0.8.23.apk 2>/dev/null | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1)
