@@ -1,0 +1,24 @@
+name: Publish El Mister v0.8.12 Android package fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0812-publish.yml'
+      - 'el-mister/release/v0812-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Verify Android package and publish v0.8.12
+        shell: bash
+        run: bash el-mister/release/v0812-signed/publish.sh
