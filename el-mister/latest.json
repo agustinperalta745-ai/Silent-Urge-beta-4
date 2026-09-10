@@ -1,17 +1,17 @@
 {
-  "versionCode": 33,
-  "versionName": "0.7.12",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.12.apk",
+  "versionCode": 34,
+  "versionName": "0.7.13",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.13.apk",
   "mandatory": false,
   "changes": [
-    "Nueva simulación visual: cancha desde arriba con ambos equipos y pelota en movimiento",
-    "Eliminada la pantalla estática de Simulando: el partido avanza automáticamente y se frena cuando el DT debe intervenir",
-    "Las decisiones aparecen sobre la jugada con la cancha congelada en la situación correspondiente",
-    "Las jugadas conectadas reflejan zonas de ataque, contras, presión, laterales altos y llegadas al área en la cancha",
-    "Las decisiones tácticas modifican la forma visible del equipo durante la simulación",
-    "Se mantienen minijuegos, cambios, tarjetas, cansancio, identidad de jugadores y el mercado corregido"
+    "La simulación visual deja de mover jugadores y pelota al azar",
+    "La pelota ahora tiene un poseedor real y sólo cambia mediante pases, conducción o una pérdida",
+    "Los jugadores se mueven más lento y respetan su zona, la formación y el movimiento del bloque",
+    "El equipo acompaña la posesión y reacciona de forma coherente cuando cambia quién tiene la pelota",
+    "Los pases tienen recorrido visible y las pérdidas pasan al rival que corta la jugada",
+    "Se mantienen las intervenciones automáticas, jugadas conectadas, minijuegos, cambios y decisiones tácticas"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "bfcce8f865cb5b6597ef0892b9a2158e12348d93a680ec75f2ab50c72095c11a",
+  "sha256": "29d4c24a3e05e76baedf4eda649665346ac12832a2c816a86fa3f2e2fe996ec3",
   "migration": true
 }
