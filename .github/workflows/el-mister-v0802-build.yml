@@ -1,0 +1,82 @@
+name: Build El Mister v0.8.2 intervention fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0802-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Test intervention bridge only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0802/intervention-bridge.js
+          node el-mister/release/v0802/test-intervention-bridge.js
+
+      - name: Assemble v0.8.2 source without touching Motor 2D
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0802
+          mkdir -p /tmp/v0802/work/assets
+          cp el-mister/source/v0801-index.html /tmp/v0802/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0802/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.1';" not in s or 'const VERSION_CODE=37;' not in s:
+              raise SystemExit('v0.8.1 markers not found')
+          s=s.replace("const VERSION='0.8.1';", "const VERSION='0.8.2';", 1)
+          s=s.replace('const VERSION_CODE=37;', 'const VERSION_CODE=38;', 1)
+          fix=Path('el-mister/release/v0802/intervention-bridge.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+fix+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0802/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0802/full.js
+          grep -q "const VERSION='0.8.2'" /tmp/v0802/index.html
+          grep -q 'const VERSION_CODE=38' /tmp/v0802/index.html
+          grep -q 'em802DecisionVisible' /tmp/v0802/index.html
+          grep -q 'em802 watchdog' /tmp/v0802/index.html
+          grep -q 'MOTOR 2D' /tmp/v0802/index.html
+          grep -q 'em801Kickoff' /tmp/v0802/index.html
+          grep -q 'launch79mini' /tmp/v0802/index.html
+          grep -q 'v067StartShotGame' /tmp/v0802/index.html
+
+      - name: Build unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0802/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0802/work/classes.dex
+          cp /tmp/v0802/index.html /tmp/v0802/work/assets/index.html
+          cd /tmp/v0802/work
+          zip -q -r /tmp/v0802/El-Mister-v0.8.2-unsigned.apk .
+          unzip -t /tmp/v0802/El-Mister-v0.8.2-unsigned.apk >/dev/null
+          unzip -p /tmp/v0802/El-Mister-v0.8.2-unsigned.apk assets/index.html | grep -q 'em802DecisionVisible'
+          sha256sum /tmp/v0802/El-Mister-v0.8.2-unsigned.apk | tee /tmp/v0802/unsigned.sha256
+
+      - name: Upload unsigned build
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0802-unsigned
+          path: |
+            /tmp/v0802/El-Mister-v0.8.2-unsigned.apk
+            /tmp/v0802/index.html
+            /tmp/v0802/unsigned.sha256
+          if-no-files-found: error
+          retention-days: 3
