@@ -1,0 +1,124 @@
+name: Publish El Mister v0.8.1 adaptive match
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0801-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Validate adaptive match engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0800/match-engine.js
+          node --check el-mister/release/v0800/match-engine-hotfix.js
+          node --check el-mister/release/v0800/test-runtime.js
+          node --check el-mister/release/v0800/test-hotfix.js
+          node el-mister/release/v0800/test-runtime.js
+          node el-mister/release/v0800/test-hotfix.js
+
+      - name: Assemble v0.8.1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0801
+          mkdir -p /tmp/v0801/work/assets /tmp/v0801/signature/META-INF
+          cp el-mister/source/v0714-index.html /tmp/v0801/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0801/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.14';" not in s or 'const VERSION_CODE=35;' not in s:
+              raise SystemExit('v0.7.14 markers not found')
+          s=s.replace("const VERSION='0.7.14';", "const VERSION='0.8.1';", 1)
+          s=s.replace('const VERSION_CODE=35;', 'const VERSION_CODE=37;', 1)
+          engine=Path('el-mister/release/v0800/match-engine.js').read_text(encoding='utf-8')
+          hotfix=Path('el-mister/release/v0800/match-engine-hotfix.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+engine+'\n'+hotfix+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0801/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0801/full.js
+          grep -q "const VERSION='0.8.1'" /tmp/v0801/index.html
+          grep -q 'const VERSION_CODE=37' /tmp/v0801/index.html
+          grep -q 'em801RecoverLegacyDecision' /tmp/v0801/index.html
+          grep -q 'em801ApplyChoice' /tmp/v0801/index.html
+          grep -q 'em801Kickoff' /tmp/v0801/index.html
+          grep -q 'launch79mini' /tmp/v0801/index.html
+          grep -q 'v067StartShotGame' /tmp/v0801/index.html
+          grep -q 'MOTOR 2D' /tmp/v0801/index.html
+
+      - name: Build signed APK from verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0801/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0801/work/classes.dex
+          cp /tmp/v0801/index.html /tmp/v0801/work/assets/index.html
+          cd /tmp/v0801/work
+          zip -q -r /tmp/v0801/El-Mister-v0.8.1.apk .
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0801-signed/MANIFEST.MF.b64" > /tmp/v0801/signature/META-INF/MANIFEST.MF
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0801-signed/ELMISTER.SF.b64" > /tmp/v0801/signature/META-INF/ELMISTER.SF
+          base64 -d "$GITHUB_WORKSPACE/el-mister/release/v0801-signed/ELMISTER.RSA.b64" > /tmp/v0801/signature/META-INF/ELMISTER.RSA
+          cd /tmp/v0801/signature
+          zip -q -g -r /tmp/v0801/El-Mister-v0.8.1.apk META-INF
+          unzip -t /tmp/v0801/El-Mister-v0.8.1.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0801/El-Mister-v0.8.1.apk | tee /tmp/v0801/jarverify.txt
+          grep -q 'jar verified' /tmp/v0801/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0801/expected.fp
+          keytool -printcert -jarfile /tmp/v0801/El-Mister-v0.8.1.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0801/actual.fp
+          diff -u /tmp/v0801/expected.fp /tmp/v0801/actual.fp
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q "const VERSION='0.8.1'"
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'const VERSION_CODE=37'
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'em801RecoverLegacyDecision'
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'em801ApplyChoice'
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'em801Kickoff'
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'launch79mini'
+          unzip -p /tmp/v0801/El-Mister-v0.8.1.apk assets/index.html | grep -q 'v067StartShotGame'
+
+      - name: Publish updater release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0801/El-Mister-v0.8.1.apk el-mister/El-Mister-v0.8.1.apk
+          cp /tmp/v0801/index.html el-mister/source/v0801-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.1.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 37,
+            "versionName": "0.8.1",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.1.apk",
+            "mandatory": false,
+            "changes": [
+              "Vuelven todas las situaciones y elecciones contextuales del sistema de partido anterior; las instrucciones generales ya no las reemplazan",
+              "Se mantienen todos los minijuegos y sus resoluciones dentro de la nueva pantalla 2D",
+              "La cancha representa lo que decidís: centrales más cerrados, bloque bajo, presión alta, laterales adelantados, amplitud, posesión y juego directo modifican posiciones y movimientos",
+              "Se redujeron las cadenas de pases innecesarias y el juego se vuelve más vertical cuando la situación o la táctica lo pide",
+              "El segundo tiempo vuelve a comenzar correctamente desde el círculo central",
+              "Decisiones, minijuegos, consecuencias y animación vuelven a funcionar como un único sistema conectado"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.1.apk el-mister/latest.json el-mister/source/v0801-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.1 adaptive match system'
+          git push origin HEAD:el-mister-updates
