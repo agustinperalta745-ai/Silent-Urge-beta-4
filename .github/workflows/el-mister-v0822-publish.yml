@@ -1,0 +1,124 @@
+name: Publish El Mister v0.8.22 new match change
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0822-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Reconstruct, verify and publish v0.8.22
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0822pub
+          mkdir -p /tmp/v0822pub/work/assets /tmp/v0822pub/work/META-INF
+
+          base64 -d el-mister/source/v0822-AndroidManifest.xml.b64 > /tmp/v0822pub/work/AndroidManifest.xml
+          base64 -d el-mister/source/v0822-classes.dex.b64 > /tmp/v0822pub/work/classes.dex
+          cp el-mister/source/v0822-index.html /tmp/v0822pub/work/assets/index.html
+          base64 -d el-mister/release/v0822-signed/MANIFEST.MF.b64 > /tmp/v0822pub/work/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0822-signed/ELMISTER.SF.b64 > /tmp/v0822pub/work/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0822-signed/ELMISTER.RSA.b64 > /tmp/v0822pub/work/META-INF/ELMISTER.RSA
+
+          cd /tmp/v0822pub/work
+          zip -q -D /tmp/v0822pub/El-Mister-v0.8.22.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA
+          zip -q -D /tmp/v0822pub/El-Mister-v0.8.22.apk AndroidManifest.xml assets/index.html classes.dex
+          cd "$GITHUB_WORKSPACE"
+
+          unzip -t /tmp/v0822pub/El-Mister-v0.8.22.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0822pub/El-Mister-v0.8.22.apk > /tmp/v0822pub/verify.txt 2>&1
+          grep -q 'jar verified' /tmp/v0822pub/verify.txt
+
+          unzip -p /tmp/v0822pub/El-Mister-v0.8.22.apk assets/index.html > /tmp/v0822pub/index.html
+          unzip -p /tmp/v0822pub/El-Mister-v0.8.22.apk classes.dex > /tmp/v0822pub/classes.dex
+          grep -q "const VERSION='0.8.22';" /tmp/v0822pub/index.html
+          grep -q 'const VERSION_CODE=58;' /tmp/v0822pub/index.html
+          grep -q "window.em821SceneMatch={version:'0.8.21',mode:'deterministic-keyframes'" /tmp/v0822pub/index.html
+          grep -q "window.em822Build={version:'0.8.22',versionCode:58" /tmp/v0822pub/index.html
+          strings /tmp/v0822pub/classes.dex | grep -q 'El-Mister-upd822.apk'
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          b=Path('/tmp/v0822pub/work/AndroidManifest.xml').read_bytes()
+          pos=8; strings=[]; package=None; version=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8)
+                  utf8=bool(flags&0x100)
+                  offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]
+                  base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16)
+                  attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for _ in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': version=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera', package
+          assert version==58, version
+          PY
+
+          FPR=$(keytool -printcert -jarfile /tmp/v0822pub/El-Mister-v0.8.22.apk 2>/dev/null | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1)
+          EXPECTED='87:11:11:3A:4D:61:A2:06:FC:5B:17:8E:F8:70:B6:6A:97:1E:FF:6C:F4:CF:23:BD:43:FC:6D:2D:0B:CF:C2:57'
+          test "$FPR" = "$EXPECTED"
+
+          SHA=$(sha256sum /tmp/v0822pub/El-Mister-v0.8.22.apk | awk '{print $1}')
+          cp /tmp/v0822pub/El-Mister-v0.8.22.apk el-mister/El-Mister-v0.8.22.apk
+          python3 - "$SHA" <<'PY'
+          import json,sys
+          sha=sys.argv[1]
+          data={
+            'versionCode':58,
+            'versionName':'0.8.22',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.22.apk',
+            'mandatory':False,
+            'changes':[
+              'Nueva corrección de la cancha del partido: jugadas visuales deterministas y sin movimientos aleatorios',
+              'Cancha vertical y grande con movimientos por frames que siguen la acción mostrada',
+              'Sólo se mueven de forma marcada los futbolistas involucrados; el resto conserva la estructura táctica',
+              'Pelota, apoyos, marcas y flechas siguen el guion de la jugada y no aparecen porque sí',
+              'Las decisiones tácticas y las expulsiones se reflejan visualmente sin tocar el motor histórico, decisiones ni minijuegos',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':'https://el-mister-online.agustinperalta745.workers.dev',
+            'sha256':sha,
+            'migration':True
+          }
+          open('el-mister/latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.22.apk el-mister/latest.json
+          git commit -m 'Publish El Mister v0.8.22 new deterministic match change'
+          git push origin HEAD:el-mister-updates
