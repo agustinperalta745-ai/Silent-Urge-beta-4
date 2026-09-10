@@ -49,6 +49,6 @@ for(const type of ['longshot','oneonone','volley','edge','rebound','attack','def
   ctx.window.em809AnimationTruth.drawDecision();
 }
 assert.strictEqual(staged,3,'open-play scenarios must keep the live pitch state');
-assert.strictEqual(drawn,14);
+assert.strictEqual(drawn,15);
 
 console.log('v0.8.9 animation truth regression tests: OK');
