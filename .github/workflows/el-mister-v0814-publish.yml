@@ -1,0 +1,152 @@
+name: Publish El Mister v0.8.14 decision bridge fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0814-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Verify visible intervention bridge and publish v0.8.14
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0814pub
+          mkdir -p /tmp/v0814pub/final/META-INF /tmp/v0814pub/final/assets
+
+          cp el-mister/source/v0814-index.html /tmp/v0814pub/final/assets/index.html
+          base64 -d el-mister/source/v0814-AndroidManifest.xml.b64 > /tmp/v0814pub/final/AndroidManifest.xml
+          base64 -d el-mister/source/v0814-classes.dex.b64 > /tmp/v0814pub/final/classes.dex
+          base64 -d el-mister/release/v0814-prep/MANIFEST.MF.b64 > /tmp/v0814pub/final/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0814-prep/ELMISTER.SF.b64 > /tmp/v0814pub/final/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0814-signed/ELMISTER.RSA.b64 > /tmp/v0814pub/final/META-INF/ELMISTER.RSA
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          s=Path('/tmp/v0814pub/final/assets/index.html').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.14';" in s
+          assert 'const VERSION_CODE=50;' in s
+          assert 'window.em809AnimationTruth' in s
+          assert 'window.em811LegacyDynamicsBridge' in s
+          assert 'window.em814DecisionBridge' in s
+          assert s.rfind('renderLiveDecision=renderHistoricalDecision') > s.rfind('window.em811LegacyDynamicsBridge')
+          dex=Path('/tmp/v0814pub/final/classes.dex').read_bytes()
+          assert b'El-Mister-upd814.apk' in dex
+          assert b'El-Mister-upd813.apk' not in dex
+          b=bytearray(Path('/tmp/v0814pub/final/AndroidManifest.xml').read_bytes())
+          pos=8; strings=[]; native=None; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': native=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera', package
+          assert native==50, native
+          print('Android package:',package,'native versionCode:',native)
+          PY
+
+          node el-mister/release/v0809/test-animation-truth.js
+
+          # Regression test for the exact reported bug: pause must render the historical situation.
+          node - <<'JS'
+          const fs=require('fs'),vm=require('vm');
+          global.window=global;
+          global.S={clubId:'pal',live:{minute:16,gh:0,ga:0,home:'cen',away:'pal',opponent:'cen',isHome:false,stopIndex:0,pauseCount:1,subsUsed:0,subWindows:0,activeSubWindowMinute:null,scenario:{kind:'tactical',t:'Situación histórica visible',d:'El partido pide una decisión.',o:[{t:'Opción A',h:'A'},{t:'Opción B',h:'B'}]}}};
+          let html='';
+          global.openModal=x=>{html=x}; global.save=()=>{}; global.em80Stop=()=>{}; global.em80RenderMatch=()=>{};
+          global.v062MatchIntensity=()=>61; global.liveContextHtml=()=>'<div>contexto</div>'; global.em80DecisionPitchHtml=()=>'<canvas id="em80DecisionCanvas"></canvas>'; global.em80DrawDecision=()=>{};
+          global.club=id=>({name:id==='pal'?'Paladines FC':'Central del Lago'}); global.v062OpenSubsFromDecision=()=>{}; global.resolveMatchChoice=()=>{}; global.render=()=>{}; global.toast=()=>{};
+          global.document={querySelector:(sel)=>sel.includes('.choice')?{}:null}; global.setTimeout=fn=>{fn();return 1};
+          global.makeMatchScenario=()=>{throw new Error('must not rebuild an already-created historical scenario')};
+          global.v06RenderMatchHub=()=>{}; global.v063AdvanceUntilDecision=()=>{}; global.renderLiveDecision=()=>{}; global.em80PauseForDecision=()=>{};
+          const patch=fs.readFileSync('el-mister/release/v0814/decision-bridge-fix.js','utf8');
+          vm.runInThisContext(patch);
+          em80PauseForDecision(S.live);
+          if(!html.includes('Situación histórica visible'))throw new Error('historical situation title was not rendered');
+          if((html.match(/class="choice/g)||[]).length!==2)throw new Error('historical choices were not rendered');
+          if(!html.includes('La cancha se detuvo en esta situación'))throw new Error('frozen-pitch decision context missing');
+          console.log('v0.8.14 pause -> visible historical situation regression test: OK');
+          JS
+
+          # Exact file order; no synthetic directory entries.
+          (cd /tmp/v0814pub/final && zip -q -D /tmp/v0814pub/El-Mister-v0.8.14.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0814pub/El-Mister-v0.8.14.apk >/dev/null
+
+          jarsigner -verify -verbose -certs /tmp/v0814pub/El-Mister-v0.8.14.apk | tee /tmp/v0814pub/jarverify.txt
+          grep -q 'jar verified' /tmp/v0814pub/jarverify.txt
+          if grep -q 'internal inconsistencies' /tmp/v0814pub/jarverify.txt; then exit 1; fi
+
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0814pub/expected.fp
+          keytool -printcert -jarfile /tmp/v0814pub/El-Mister-v0.8.14.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0814pub/actual.fp
+          diff -u /tmp/v0814pub/expected.fp /tmp/v0814pub/actual.fp
+
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          APKSIGNER=$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner 2>/dev/null | sort -V | tail -1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs /tmp/v0814pub/El-Mister-v0.8.14.apk | tee /tmp/v0814pub/apkverify.txt
+          grep -q '^Verifies$' /tmp/v0814pub/apkverify.txt
+
+          cp /tmp/v0814pub/El-Mister-v0.8.14.apk el-mister/El-Mister-v0.8.14.apk
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.14.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          from pathlib import Path
+          import json,sys
+          sha=sys.argv[1]
+          p=Path('el-mister/latest.json')
+          old=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+          data={
+            "versionCode":50,
+            "versionName":"0.8.14",
+            "apkUrl":"https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.14.apk",
+            "mandatory":False,
+            "changes":[
+              "Corregido el congelamiento al aparecer una intervención: la situación ahora se muestra siempre sobre la cancha detenida",
+              "El render de decisiones deja de pasar por constructores 0.8.x y conserva exactamente la situación generada por la dinámica histórica",
+              "Agregado un seguro para que un fallo de render nunca deje el partido congelado en silencio",
+              "No se modifican la animación 0.8.9, los goles, los minijuegos ni las reglas del partido",
+              "La carrera guardada se mantiene"
+            ],
+            "onlineUrl":old.get("onlineUrl","https://el-mister-online.agustinperalta745.workers.dev"),
+            "sha256":sha,
+            "migration":True
+          }
+          p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.14.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.14 visible intervention fix'
+          git push origin HEAD:el-mister-updates
