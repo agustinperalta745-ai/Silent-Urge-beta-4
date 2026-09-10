@@ -1,0 +1,46 @@
+name: Validate El Mister v0.8.16 unsigned APK
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0816-unsigned-artifact.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Rebuild and validate unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0816unsigned && mkdir -p /tmp/v0816unsigned/assets
+          base64 -d el-mister/source/v0816-AndroidManifest.xml.b64 > /tmp/v0816unsigned/AndroidManifest.xml
+          base64 -d el-mister/source/v0816-classes.dex.b64 > /tmp/v0816unsigned/classes.dex
+          cp el-mister/source/v0816-index.html /tmp/v0816unsigned/assets/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+          b=Path('/tmp/v0816unsigned/classes.dex').read_bytes()
+          assert b[:4]==b'dex\n', b[:8]
+          assert b[12:32]==hashlib.sha1(b[32:]).digest(), 'DEX SHA-1 mismatch'
+          assert struct.unpack_from('<I',b,8)[0]==(zlib.adler32(b[12:]) & 0xffffffff), 'DEX Adler32 mismatch'
+          assert b'El-Mister-upd816.apk' in b
+          assert b'El-Mister-upd815.apk' not in b
+          print('DEX structural integrity: OK')
+          PY
+          (cd /tmp/v0816unsigned && zip -q -D /tmp/El-Mister-v0.8.16-unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/El-Mister-v0.8.16-unsigned.apk
+          sha256sum /tmp/El-Mister-v0.8.16-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.16-unsigned
+          path: /tmp/El-Mister-v0.8.16-unsigned.apk
+          if-no-files-found: error
