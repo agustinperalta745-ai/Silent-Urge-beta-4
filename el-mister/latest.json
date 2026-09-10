@@ -1,16 +1,16 @@
 {
-  "versionCode": 29,
-  "versionName": "0.7.8",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.8.apk",
+  "versionCode": 30,
+  "versionName": "0.7.9",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.9.apk",
   "mandatory": false,
   "changes": [
-    "Pirámide corregida: ascensos directos, Promociones, descensos y copas por puesto según cada división",
-    "La Promoción ahora se juega en un partido único intenso entre el 3.º de abajo y el 8.º de arriba",
-    "Premios económicos añadidos para copas, ascensos directos y ascensos por Promoción",
-    "Mercado de 7 días: podés usar el resto del club, ver la plantilla, hacer otra búsqueda o saltar toda la ventana",
-    "Cada minijuego muestra una tarjeta previa separada que explica la situación, qué hacer y el objetivo"
+    "Partidos más conectados: una decisión puede abrir una secuencia completa dentro de la misma jugada",
+    "Nuevos minijuegos simples: regate, pase filtrado, salida bajo presión, pase atrás, centro, remate de primera y cortes defensivos",
+    "El partido reacciona al contexto: laterales cansados, presión rival, laterales altos y faltas provocadas generan situaciones coherentes",
+    "Buscar el contacto puede producir tiros libres en distintas zonas y continuar la jugada desde esa pelota parada",
+    "Corregido el bloqueo al terminar la temporada: Continuar al mercado ahora entra siempre a la ventana de 7 días"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "b4ab13be1546e42ebcfcdca5f8b74049b8440a1857acb637d21533dba9a227ca",
+  "sha256": "4980174e385ebc317d57275a02f85b4f1f6a7b587ea575426ae4d410b82504cd",
   "migration": true
 }
