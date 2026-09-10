@@ -1,17 +1,15 @@
 {
-  "versionCode": 37,
-  "versionName": "0.8.1",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.1.apk",
+  "versionCode": 38,
+  "versionName": "0.8.2",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.2.apk",
   "mandatory": false,
   "changes": [
-    "Vuelven todas las situaciones y elecciones contextuales del sistema de partido anterior; las instrucciones generales ya no las reemplazan",
-    "Se mantienen todos los minijuegos y sus resoluciones dentro de la nueva pantalla 2D",
-    "La cancha representa lo que decidís: centrales más cerrados, bloque bajo, presión alta, laterales adelantados, amplitud, posesión y juego directo modifican posiciones y movimientos",
-    "Se redujeron las cadenas de pases innecesarias y el juego se vuelve más vertical cuando la situación o la táctica lo pide",
-    "El segundo tiempo vuelve a comenzar correctamente desde el círculo central",
-    "Decisiones, minijuegos, consecuencias y animación vuelven a funcionar como un único sistema conectado"
+    "Corregido el bloqueo donde la cancha se congelaba pero no aparecía la situación del DT",
+    "Las situaciones contextuales y secuencias de minijuegos ahora se abren por un puente directo y estable",
+    "Se agregó un seguro que vuelve a dibujar la intervención si el modal no llega a mostrarse",
+    "El Motor 2D, sus movimientos, pases, posiciones y animación quedan exactamente como en v0.8.1"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "3af803b2079e18c7149786ab3564a43dba152d579582af4211a334cc2498f683",
+  "sha256": "f3f9581a398badee47de529e361d49803e2b604da4948760c28cf3eb3eccf8ea",
   "migration": true
 }
