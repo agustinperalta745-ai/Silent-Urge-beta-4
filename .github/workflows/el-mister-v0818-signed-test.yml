@@ -1,0 +1,49 @@
+name: Verify El Mister v0.8.18 signed Match2D
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0818-signed-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+
+      - name: Reconstruct signed v0.8.18 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0818signed
+          mkdir -p /tmp/v0818signed/work/assets /tmp/v0818signed/work/META-INF /tmp/v0818signed/out
+          base64 -d el-mister/source/v0818-AndroidManifest.xml.b64 > /tmp/v0818signed/work/AndroidManifest.xml
+          base64 -d el-mister/source/v0818-classes.dex.b64 > /tmp/v0818signed/work/classes.dex
+          cp el-mister/source/v0818-index.html /tmp/v0818signed/work/assets/index.html
+          base64 -d el-mister/release/v0818-signed/MANIFEST.MF.b64 > /tmp/v0818signed/work/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0818-signed/ELMISTER.SF.b64 > /tmp/v0818signed/work/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0818-signed/ELMISTER.RSA.b64 > /tmp/v0818signed/work/META-INF/ELMISTER.RSA
+          (cd /tmp/v0818signed/work && zip -q -D /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk > /tmp/v0818signed/verify.txt
+          grep -q 'jar verified.' /tmp/v0818signed/verify.txt
+          keytool -printcert -jarfile /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk > /tmp/v0818signed/cert.txt
+          grep -q 'CN=El Mister Release, O=El Mister, C=AR' /tmp/v0818signed/cert.txt
+          grep -q '87:11:11:3A:4D:61:A2:06:FC:5B:17:8E:F8:70:B6:6A:97:1E:FF:6C:F4:CF:23:BD:43:FC:6D:2D:0B:CF:C2:57' /tmp/v0818signed/cert.txt
+          unzip -p /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk assets/index.html | grep -q "em818Match2D"
+          unzip -p /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk assets/index.html | grep -q "const VERSION='0.8.18';"
+          sha256sum /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk
+
+      - name: Upload verified signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.18-signed-test
+          path: /tmp/v0818signed/out/El-Mister-v0.8.18-signed.apk
+          if-no-files-found: error
