@@ -1,0 +1,80 @@
+name: Prepare El Mister v0.8.9 animation truth fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0809-prepare.yml'
+      - 'el-mister/release/v0809/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Test isolated visual hotfix
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0809/animation-truth.js
+          node --check el-mister/release/v0809/test-animation-truth.js
+          node el-mister/release/v0809/test-animation-truth.js
+
+      - name: Assemble v0.8.9 source from published v0.8.8
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0809
+          mkdir -p /tmp/v0809/work/assets
+          cp el-mister/source/v0808-index.html /tmp/v0809/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0809/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.8';" not in s or 'const VERSION_CODE=44;' not in s:
+              raise SystemExit('v0.8.8 markers not found')
+          s=s.replace("const VERSION='0.8.8';", "const VERSION='0.8.9';", 1)
+          s=s.replace('const VERSION_CODE=44;', 'const VERSION_CODE=45;', 1)
+          patch=Path('el-mister/release/v0809/animation-truth.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          Path('/tmp/v0809/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0809/full.js
+          grep -q "const VERSION='0.8.9'" /tmp/v0809/index.html
+          grep -q 'const VERSION_CODE=45;' /tmp/v0809/index.html
+          grep -q 'em809AnimationTruth' /tmp/v0809/index.html
+          grep -q 'v0.8.9 · verdad visual de la jugada' /tmp/v0809/index.html
+
+      - name: Build unsigned APK for signing
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0809/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0809/work/classes.dex
+          cp /tmp/v0809/index.html /tmp/v0809/work/assets/index.html
+          (cd /tmp/v0809/work && zip -q -r /tmp/v0809/El-Mister-v0.8.9-unsigned.apk .)
+          unzip -t /tmp/v0809/El-Mister-v0.8.9-unsigned.apk >/dev/null
+          unzip -p /tmp/v0809/El-Mister-v0.8.9-unsigned.apk assets/index.html | grep -q 'em809AnimationTruth'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0809-animation-truth-unsigned
+          path: /tmp/v0809/El-Mister-v0.8.9-unsigned.apk
+          retention-days: 3
+
+      - name: Save versioned source
+        run: |
+          set -euo pipefail
+          cp /tmp/v0809/index.html el-mister/source/v0809-index.html
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v0809-index.html
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.9 animation truth source'
+          git push origin HEAD:el-mister-updates
