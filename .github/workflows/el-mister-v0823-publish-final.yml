@@ -1,0 +1,133 @@
+name: Publish El Mister v0.8.23 static scenes FINAL
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0823-publish-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build exact static-situation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0823final
+          mkdir -p /tmp/v0823final/work/assets /tmp/v0823final/work/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('el-mister/source/v0822-index.html').read_text(encoding='utf-8')
+          module=Path('el-mister/scenematch/scenematch-v0823-static.js').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.22';" in base and 'const VERSION_CODE=58;' in base
+          assert 'requestAnimationFrame' not in module and 'startFrames(' not in module
+          assert "mode:'static-situation-image'" in module and 'animated:false' in module and 'randomMotion:false' in module
+          base=base.replace("const VERSION='0.8.22';","const VERSION='0.8.23';",1).replace('const VERSION_CODE=58;','const VERSION_CODE=59;',1)
+          head,tail=base.rsplit('</script>',1)
+          marker="window.em823Build={version:'0.8.23',versionCode:59,change:'static-situation-image-no-animation'};"
+          out=head+'\n'+module+'\n\n'+marker+'\n</script>'+tail
+          Path('/tmp/v0823final/work/assets/index.html').write_text(out,encoding='utf-8')
+          Path('/tmp/v0823final/index.html').write_text(out,encoding='utf-8')
+          Path('/tmp/v0823final/full.js').write_text(out.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0823final/full.js
+          test "$(sha256sum /tmp/v0823final/index.html | awk '{print $1}')" = 'e9f48902be070ded2d80ee23dd92647636092d490012b2ac3dfb34e2568938a1'
+          grep -q 'Así está planteada la jugada' /tmp/v0823final/index.html
+          grep -q 'Imagen de la situación' /tmp/v0823final/index.html
+
+      - name: Assemble and verify signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v0823-AndroidManifest.xml.b64 > /tmp/v0823final/work/AndroidManifest.xml
+          base64 -d el-mister/source/v0823-classes.dex.b64 > /tmp/v0823final/work/classes.dex
+          base64 -d el-mister/release/v0823-signed/MANIFEST.MF.b64 > /tmp/v0823final/work/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0823-signed/ELMISTER.SF.b64 > /tmp/v0823final/work/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0823-signed/ELMISTER.RSA.b64 > /tmp/v0823final/work/META-INF/ELMISTER.RSA
+          cd /tmp/v0823final/work
+          zip -q -D /tmp/v0823final/El-Mister-v0.8.23.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA
+          zip -q -D /tmp/v0823final/El-Mister-v0.8.23.apk AndroidManifest.xml assets/index.html classes.dex
+          cd "$GITHUB_WORKSPACE"
+          unzip -t /tmp/v0823final/El-Mister-v0.8.23.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0823final/El-Mister-v0.8.23.apk > /tmp/v0823final/verify.txt 2>&1
+          grep -q 'jar verified' /tmp/v0823final/verify.txt
+          FPR=$(keytool -printcert -jarfile /tmp/v0823final/El-Mister-v0.8.23.apk 2>/dev/null | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1)
+          test "$FPR" = '87:11:11:3A:4D:61:A2:06:FC:5B:17:8E:F8:70:B6:6A:97:1E:FF:6C:F4:CF:23:BD:43:FC:6D:2D:0B:CF:C2:57'
+          strings /tmp/v0823final/work/classes.dex | grep -q 'El-Mister-upd823.apk'
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          b=Path('/tmp/v0823final/work/AndroidManifest.xml').read_bytes(); pos=8; strings=[]; package=None; version=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100)
+                  offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for _ in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': version=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera' and version==59,(package,version)
+          PY
+
+      - name: Put v0.8.23 in the app updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0823final/index.html el-mister/source/v0823-index.html
+          cp /tmp/v0823final/El-Mister-v0.8.23.apk el-mister/El-Mister-v0.8.23.apk
+          SHA=$(sha256sum /tmp/v0823final/El-Mister-v0.8.23.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          import json,sys
+          data={
+            'versionCode':59,
+            'versionName':'0.8.23',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.23.apk',
+            'mandatory':False,
+            'changes':[
+              'La cancha del partido ahora muestra una imagen táctica estática de la situación actual',
+              'Se eliminaron por completo las animaciones y los movimientos de las bolitas durante cada escena',
+              'Jugadores, pelota, marcas y flechas se colocan una sola vez para explicar la jugada planteada',
+              'Cuando aparece una decisión, la imagen se arma a partir de esa misma narración antes de elegir',
+              'Formación, táctica y expulsiones siguen reflejándose sin cambiar decisiones, minijuegos ni resultados',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':'https://el-mister-online.agustinperalta745.workers.dev',
+            'sha256':sys.argv[1],
+            'migration':True
+          }
+          open('el-mister/latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v0823-index.html el-mister/El-Mister-v0.8.23.apk el-mister/latest.json
+          git commit -m 'Publish El Mister v0.8.23 static tactical snapshots'
+          git pull --rebase origin el-mister-updates
+          git push origin HEAD:el-mister-updates
