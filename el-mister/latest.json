@@ -1,17 +1,17 @@
 {
-  "versionCode": 58,
-  "versionName": "0.8.22",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.22.apk",
+  "versionCode": 59,
+  "versionName": "0.8.23",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.23.apk",
   "mandatory": false,
   "changes": [
-    "Nueva corrección de la cancha del partido: jugadas visuales deterministas y sin movimientos aleatorios",
-    "Cancha vertical y grande con movimientos por frames que siguen la acción mostrada",
-    "Sólo se mueven de forma marcada los futbolistas involucrados; el resto conserva la estructura táctica",
-    "Pelota, apoyos, marcas y flechas siguen el guion de la jugada y no aparecen porque sí",
-    "Las decisiones tácticas y las expulsiones se reflejan visualmente sin tocar el motor histórico, decisiones ni minijuegos",
+    "La cancha del partido ahora muestra una imagen táctica estática de la situación actual",
+    "Se eliminaron por completo las animaciones y los movimientos de las bolitas durante cada escena",
+    "Jugadores, pelota, marcas y flechas se colocan una sola vez para explicar la jugada planteada",
+    "Cuando aparece una decisión, la imagen se arma a partir de esa misma narración antes de elegir",
+    "Formación, táctica y expulsiones siguen reflejándose sin cambiar decisiones, minijuegos ni resultados",
     "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "34b99a99ed741fb8b009dfbe72a18cc2e2f7684287cb0dcf7b590c3220c2a25b",
+  "sha256": "c7decfac7967a4e939c9cb85620a6fe6d8ede63b87e05fda49ab7ce5ec213a18",
   "migration": true
 }
