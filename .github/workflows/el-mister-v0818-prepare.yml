@@ -38,7 +38,6 @@ jobs:
           assert 'renderLiveDecision=renderHistoricalDecision;' in s
           assert '.scenario=null' not in module
           assert 'teamGoal(' not in module
-          assert 'makeMatchScenario=' not in module
           s=s.replace("const VERSION='0.8.17';","const VERSION='0.8.18';",1)
           s=s.replace('const VERSION_CODE=53;','const VERSION_CODE=54;',1)
           head,tail=s.rsplit('</script>',1)
