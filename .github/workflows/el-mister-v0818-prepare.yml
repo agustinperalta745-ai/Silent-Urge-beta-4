@@ -1,0 +1,148 @@
+name: Prepare El Mister v0.8.18 isolated Match2D
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0818-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.8.18 with isolated Match2D
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0818
+          mkdir -p /tmp/v0818/work/assets /tmp/v0818/out el-mister/release/v0818-prep
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('el-mister/source/v0817-index.html')
+          module=Path('el-mister/match2d/match2d-v0818.js').read_text(encoding='utf-8')
+          s=src.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.17';" in s
+          assert 'const VERSION_CODE=53;' in s
+          assert "window.em814DecisionBridge={version:'0.8.14',visual:'0.8.9',logic:'historical',silentFreezeGuard:true}" in s
+          assert "window.em815MatchTruth={version:'0.8.15',goalVisual:'continuous-before-score',interventions:'historical-minimum-two'}" in s
+          assert 'function em817SafeDecisionFallback' in s
+          assert 'renderLiveDecision=renderHistoricalDecision;' in s
+          assert '.scenario=null' not in module
+          assert 'teamGoal(' not in module
+          assert 'makeMatchScenario=' not in module
+          s=s.replace("const VERSION='0.8.17';","const VERSION='0.8.18';",1)
+          s=s.replace('const VERSION_CODE=53;','const VERSION_CODE=54;',1)
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+module+'\n</script>'+tail
+          assert "const VERSION='0.8.18';" in s
+          assert 'const VERSION_CODE=54;' in s
+          assert "authority:'historical'" in s
+          assert "visual:'isolated-read-only'" in s
+          assert 'em818RenderMatch' in s
+          assert 'renderLiveDecision=renderHistoricalDecision;' in s
+          assert "toast('No se pudo abrir la situación. El partido continúa.')" not in s
+          Path('/tmp/v0818/index.html').write_text(s,encoding='utf-8')
+          Path('/tmp/v0818/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0818/full.js
+          node --check el-mister/match2d/match2d-v0818.js
+          node el-mister/release/v0818/test-match2d-separation.js el-mister/match2d/match2d-v0818.js
+          node el-mister/release/v0809/test-animation-truth.js
+
+      - name: Prepare native wrapper v0.8.18
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v0817-AndroidManifest.xml.b64 > /tmp/v0818/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p=Path('/tmp/v0818/AndroidManifest.xml'); b=bytearray(p.read_bytes())
+          pos=8; strings=[]; changed=False; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': struct.pack_into('<I',b,ap+16,54); changed=True
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert changed and package=='com.elmister.carrera',(changed,package)
+          p.write_bytes(b)
+          PY
+          base64 -d el-mister/source/v0817-classes.dex.b64 > /tmp/v0818/classes.dex
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+          p=Path('/tmp/v0818/classes.dex'); b=bytearray(p.read_bytes())
+          old=b'El-Mister-upd817.apk'; new=b'El-Mister-upd818.apk'
+          assert len(old)==len(new) and old in b and new not in b
+          b=bytearray(bytes(b).replace(old,new,1))
+          b[12:32]=hashlib.sha1(b[32:]).digest()
+          struct.pack_into('<I',b,8,zlib.adler32(b[12:]) & 0xffffffff)
+          p.write_bytes(b)
+          assert bytes(b[12:32])==hashlib.sha1(b[32:]).digest()
+          assert struct.unpack_from('<I',b,8)[0]==(zlib.adler32(b[12:]) & 0xffffffff)
+          assert new in b and old not in b
+          PY
+          cp /tmp/v0818/AndroidManifest.xml /tmp/v0818/work/AndroidManifest.xml
+          cp /tmp/v0818/classes.dex /tmp/v0818/work/classes.dex
+          cp /tmp/v0818/index.html /tmp/v0818/work/assets/index.html
+          (cd /tmp/v0818/work && zip -q -D /tmp/v0818/out/El-Mister-v0.8.18-unsigned.apk AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0818/out/El-Mister-v0.8.18-unsigned.apk >/dev/null
+          unzip -p /tmp/v0818/out/El-Mister-v0.8.18-unsigned.apk assets/index.html | grep -q "em818Match2D"
+
+      - name: Produce signing preparation metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy818.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy818.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0818/out/dummy.apk /tmp/v0818/out/El-Mister-v0.8.18-unsigned.apk dummy >/dev/null 2>&1
+          unzip -p /tmp/v0818/out/dummy.apk META-INF/MANIFEST.MF | base64 -w0 > el-mister/release/v0818-prep/MANIFEST.MF.b64
+          unzip -p /tmp/v0818/out/dummy.apk META-INF/DUMMY.SF | base64 -w0 > el-mister/release/v0818-prep/ELMISTER.SF.b64
+          base64 -w0 /tmp/v0818/AndroidManifest.xml > el-mister/source/v0818-AndroidManifest.xml.b64
+          base64 -w0 /tmp/v0818/classes.dex > el-mister/source/v0818-classes.dex.b64
+          cp /tmp/v0818/index.html el-mister/source/v0818-index.html
+
+      - name: Upload unsigned APK for device testing/signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: El-Mister-v0.8.18-unsigned
+          path: /tmp/v0818/out/El-Mister-v0.8.18-unsigned.apk
+          if-no-files-found: error
+
+      - name: Commit prepared source and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v0818-prep el-mister/source/v0818-index.html el-mister/source/v0818-AndroidManifest.xml.b64 el-mister/source/v0818-classes.dex.b64
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.18 isolated Match2D payload'
+          git push origin HEAD:el-mister-updates
