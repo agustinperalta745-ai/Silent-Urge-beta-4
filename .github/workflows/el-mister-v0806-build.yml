@@ -1,0 +1,67 @@
+name: Build El Mister v0.8.6 exact unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0806-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Regression tests
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0806/zone-logic.js
+          node el-mister/release/v0806/test-zone-logic.js
+      - name: Assemble exact v0.8.6 source
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0806 && mkdir -p /tmp/v0806/work/assets
+          cp el-mister/source/v0805-index.html /tmp/v0806/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0806/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.5';" not in s or 'const VERSION_CODE=41;' not in s:
+              raise SystemExit('v0.8.5 markers not found')
+          s=s.replace("const VERSION='0.8.5';", "const VERSION='0.8.6';", 1)
+          s=s.replace('const VERSION_CODE=41;', 'const VERSION_CODE=42;', 1)
+          patch=Path('el-mister/release/v0806/zone-logic.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0806/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0806/full.js
+          grep -q "const VERSION='0.8.6'" /tmp/v0806/index.html
+          grep -q 'em806ZoneContext' /tmp/v0806/index.html
+          grep -q 'em806BuildScenario' /tmp/v0806/index.html
+          grep -q "type==='throwIn'" /tmp/v0806/index.html
+          grep -q "type==='corner'" /tmp/v0806/index.html
+          grep -q 'em805QueueGoal' /tmp/v0806/index.html
+          grep -q 'em805BarParams' /tmp/v0806/index.html
+          grep -q 'MOTOR 2D' /tmp/v0806/index.html
+      - name: Build exact unsigned APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0806/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0806/work/classes.dex
+          cp /tmp/v0806/index.html /tmp/v0806/work/assets/index.html
+          cd /tmp/v0806/work
+          zip -q -r /tmp/v0806/El-Mister-v0.8.6-unsigned.apk .
+          unzip -t /tmp/v0806/El-Mister-v0.8.6-unsigned.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0806-exact-unsigned
+          path: /tmp/v0806/El-Mister-v0.8.6-unsigned.apk
+          retention-days: 3
