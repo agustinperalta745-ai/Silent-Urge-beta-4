@@ -1,16 +1,15 @@
 {
-  "versionCode": 39,
-  "versionName": "0.8.3",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.3.apk",
+  "versionCode": 40,
+  "versionName": "0.8.4",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.4.apk",
   "mandatory": false,
   "changes": [
-    "Eliminado el fallback que repetía siempre las mismas tres opciones genéricas",
-    "Las intervenciones vuelven a priorizar situaciones reales del partido y secuencias ya existentes",
-    "Se recuperan presión, laterales, delantero aislado, amarillas, cansancio, contras y jugadas enlazadas con minijuegos",
-    "Se evita repetir la misma lectura táctica varias intervenciones seguidas",
-    "El Motor 2D y su animación no fueron modificados"
+    "La cancha de cada intervención ahora se acomoda a la situación que describe el texto: remates, penales, tiros libres, córners, mano a mano, salidas bajo presión, bandas y situaciones defensivas",
+    "Un remate desde 28 metros ya muestra al jugador y la pelota realmente cerca del área rival, no en campo propio",
+    "Cuando un gol nace de una decisión o minijuego, después de la tarjeta de GOL se ve la pelota entrar al arco y luego el rival saca desde el círculo central",
+    "La animación normal del Motor 2D, sus pases, movimientos y físicas no fueron modificados"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "45ee6910d0e18b4b632dd6bf6d9f6e192088d98ea494e036859b338550c84f4e",
+  "sha256": "d97ad2fe753638bd874a1a054ebc7d338e9bf8b7a8d9026270c0d337667158e0",
   "migration": true
 }
