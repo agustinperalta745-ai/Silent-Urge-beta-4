@@ -1,18 +1,18 @@
 {
-  "versionCode": 42,
-  "versionName": "0.8.6",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.6.apk",
+  "versionCode": 43,
+  "versionName": "0.8.7",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.7.apk",
   "mandatory": false,
   "changes": [
-    "La cancha manda: la zona y la posesión reales de la pelota definen las decisiones disponibles",
-    "Cerca de tu área aparecen decisiones defensivas, de arquero y salida; en mitad de cancha, progresión y presión; cerca del área rival con posesión propia, remates, centros, duelos y búsqueda de faltas",
-    "Ya no se mueve artificialmente la cancha para justificar una decisión: cada situación nace de la jugada que ya se estaba viendo",
-    "Las decisiones encadenadas hacen avanzar o retroceder la jugada de forma coherente",
-    "Gol: saque del medio; banda: lateral; línea de fondo: saque de arco o córner según el último toque",
-    "Se mantienen los minijuegos, su dificultad adaptativa y la coordinación visual de goles de la 0.8.5",
-    "No se modificó el movimiento normal, los pases ni las físicas de la animación 2D"
+    "Se recuperó la variedad de decisiones durante los partidos: ya no quedan reducidas siempre a las mismas tres opciones de ataque o defensa",
+    "Vuelven las jugadas ofensivas y minijuegos contextuales como patear al arco, rematar de primera, pases filtrados, centros, pases atrás, duelos y salidas bajo presión",
+    "Las opciones siguen respetando la posición real de la pelota y la posesión: no aparecen remates ni acciones ofensivas cuando la jugada no lo permite",
+    "Se agregaron más variantes de progresión, presión, transición, cierre defensivo y gestión del resultado para evitar repeticiones",
+    "Corregido el cierre de partido: después de una acción/minijuego ya no se salta directamente al próximo encuentro",
+    "Al terminar el partido queda protegida la pantalla de resultado con marcador final y Victoria, Derrota o Empate antes de continuar",
+    "Se mantiene el Motor 2D, la animación contextual y las decisiones encadenadas de la v0.8.6"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "c19a6b99485b1d85353809f6a410caf18438b9cf5bca4e2286acf28beb2b71eb",
+  "sha256": "1b78f840a67403bac59b8622b40832c926c7d53823f81f5432a7956e04644e86",
   "migration": true
 }
