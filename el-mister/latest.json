@@ -1,16 +1,17 @@
 {
-  "versionCode": 32,
-  "versionName": "0.7.11",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.11.apk",
+  "versionCode": 33,
+  "versionName": "0.7.12",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.12.apk",
   "mandatory": false,
   "changes": [
-    "Identidad de jugadores: dorsales estables en el primer equipo para reconocer siempre al mismo futbolista",
-    "Canteranos con código único tipo C2-03 que se conserva al subir al primer equipo",
-    "Plantilla y cambios muestran edad, OVR, potencial, energía y perfil futbolístico de cada jugador",
-    "Mercado de compras y ventas muestra más datos antes de negociar: posición, edad, OVR, potencial, tipo de jugador y rasgo",
-    "Los recién promovidos o fichados quedan marcados como NUEVO para encontrarlos rápido"
+    "Nueva simulación visual: cancha desde arriba con ambos equipos y pelota en movimiento",
+    "Eliminada la pantalla estática de Simulando: el partido avanza automáticamente y se frena cuando el DT debe intervenir",
+    "Las decisiones aparecen sobre la jugada con la cancha congelada en la situación correspondiente",
+    "Las jugadas conectadas reflejan zonas de ataque, contras, presión, laterales altos y llegadas al área en la cancha",
+    "Las decisiones tácticas modifican la forma visible del equipo durante la simulación",
+    "Se mantienen minijuegos, cambios, tarjetas, cansancio, identidad de jugadores y el mercado corregido"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "03979a67ff49875fe42f45040e45edd261004a2fc604967644b1aa303ea0ebf5",
+  "sha256": "bfcce8f865cb5b6597ef0892b9a2158e12348d93a680ec75f2ab50c72095c11a",
   "migration": true
 }
