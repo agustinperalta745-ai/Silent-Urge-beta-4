@@ -1,0 +1,134 @@
+name: Publish El Mister v0.8.21 deterministic match scenes
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0821-publish.yml'
+      - 'el-mister/release/v0821-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Reconstruct, verify and publish v0.8.21
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0821pub
+          mkdir -p /tmp/v0821pub/final/META-INF /tmp/v0821pub/final/assets
+
+          cp el-mister/source/v0821-index.html /tmp/v0821pub/final/assets/index.html
+          base64 -d el-mister/source/v0821-AndroidManifest.xml.b64 > /tmp/v0821pub/final/AndroidManifest.xml
+          base64 -d el-mister/source/v0821-classes.dex.b64 > /tmp/v0821pub/final/classes.dex
+          base64 -d el-mister/release/v0821-signed/MANIFEST.MF.b64 > /tmp/v0821pub/final/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0821-signed/ELMISTER.SF.b64 > /tmp/v0821pub/final/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0821-signed/ELMISTER.RSA.b64 > /tmp/v0821pub/final/META-INF/ELMISTER.RSA
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,zlib,struct
+
+          dex=Path('/tmp/v0821pub/final/classes.dex').read_bytes()
+          assert dex[:4]==b'dex\n', dex[:8]
+          assert dex[12:32]==hashlib.sha1(dex[32:]).digest(), 'DEX SHA-1 mismatch'
+          assert struct.unpack_from('<I',dex,8)[0]==(zlib.adler32(dex[12:]) & 0xffffffff), 'DEX Adler32 mismatch'
+          assert b'El-Mister-upd821.apk' in dex and b'El-Mister-upd820.apk' not in dex
+
+          s=Path('/tmp/v0821pub/final/assets/index.html').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.21';" in s
+          assert 'const VERSION_CODE=57;' in s
+          assert "window.em821SceneMatch={version:'0.8.21',mode:'deterministic-keyframes',authority:'historical',continuous:false,randomVisual:false,portrait:true,scenarioClear:false}" in s
+          assert 'Math.random' not in s.split('/* ===== El Míster v0.8.21',1)[1]
+          assert 'aspect-ratio:64/100' in s
+          assert 'f.arrows.length<2' in s
+          assert 'simulateSegment(to)' in s
+          assert "toast('No se pudo abrir la situación. El partido continúa.')" not in s
+          assert 'renderLiveDecision=renderHistoricalDecision;' in s
+          print('Gameplay regression guards: OK')
+
+          b=bytearray(Path('/tmp/v0821pub/final/AndroidManifest.xml').read_bytes())
+          pos=8; strings=[]; native=None; package=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': native=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera',package
+          assert native==57,native
+          print('Android package/versionCode:',package,native)
+          PY
+
+          (cd /tmp/v0821pub/final && zip -q -D /tmp/v0821pub/El-Mister-v0.8.21.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA AndroidManifest.xml assets/index.html classes.dex)
+          unzip -t /tmp/v0821pub/El-Mister-v0.8.21.apk >/dev/null
+
+          jarsigner -verify -verbose -certs /tmp/v0821pub/El-Mister-v0.8.21.apk | tee /tmp/v0821pub/jarverify.txt
+          grep -q 'jar verified' /tmp/v0821pub/jarverify.txt
+          if grep -q 'internal inconsistencies' /tmp/v0821pub/jarverify.txt; then exit 1; fi
+
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0821pub/expected.fp
+          keytool -printcert -jarfile /tmp/v0821pub/El-Mister-v0.8.21.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0821pub/actual.fp
+          diff -u /tmp/v0821pub/expected.fp /tmp/v0821pub/actual.fp
+
+          cp /tmp/v0821pub/El-Mister-v0.8.21.apk el-mister/El-Mister-v0.8.21.apk
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.21.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          from pathlib import Path
+          import json,sys
+          sha=sys.argv[1]
+          p=Path('el-mister/latest.json')
+          old=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+          data={
+            'versionCode':57,
+            'versionName':'0.8.21',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.21.apk',
+            'mandatory':False,
+            'changes':[
+              'Cancha de partido vertical y grande, manteniendo intacto el sistema de decisiones y minijuegos',
+              'Las jugadas visuales ahora avanzan por frames con movimientos coherentes, sin bolitas moviéndose al azar',
+              'La pelota, los apoyos, las marcas y las flechas representan la jugada que realmente se está mostrando',
+              'Presión alta, bloque bajo, laterales altos, planteo ofensivo y expulsiones se reflejan en la cancha',
+              'Se limita la cantidad de flechas para que cada secuencia se entienda de un vistazo',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':old.get('onlineUrl','https://el-mister-online.agustinperalta745.workers.dev'),
+            'sha256':sha,
+            'migration':True
+          }
+          p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.21.apk el-mister/latest.json
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.8.21 deterministic match scenes'
+          git push origin HEAD:el-mister-updates
