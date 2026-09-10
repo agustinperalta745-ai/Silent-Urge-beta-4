@@ -1,0 +1,104 @@
+name: Publish El Mister v0.7.10
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0710-publish.yml'
+      - 'el-mister/release/v0710/**'
+      - 'el-mister/release/v0710-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Assemble source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0710
+          mkdir -p /tmp/v0710/work/assets /tmp/v0710/signature/META-INF
+          cp el-mister/source/v079-index.html /tmp/v0710/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0710/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.9';" not in s or 'const VERSION_CODE=30;' not in s:
+              raise SystemExit('v0.7.9 markers not found')
+          s=s.replace("const VERSION='0.7.9';", "const VERSION='0.7.10';", 1)
+          s=s.replace('const VERSION_CODE=30;', 'const VERSION_CODE=31;', 1)
+          patch=Path('el-mister/release/v0710/fix.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0710/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0710/full.js
+          grep -q "const VERSION='0.7.10'" /tmp/v0710/index.html
+          grep -q 'v0710RankedDivision' /tmp/v0710/index.html
+          grep -q 'v0710EnterMarketFromSeasonEnd' /tmp/v0710/index.html
+      - name: Build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0710/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0710/work/classes.dex
+          cp /tmp/v0710/index.html /tmp/v0710/work/assets/index.html
+          cd /tmp/v0710/work
+          zip -q -r /tmp/v0710/El-Mister-v0.7.10.apk .
+          unzip -t /tmp/v0710/El-Mister-v0.7.10.apk >/dev/null
+      - name: Attach verified signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v0710-signed/MANIFEST.MF.b64 > /tmp/v0710/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0710-signed/ELMISTER.SF.b64 > /tmp/v0710/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0710-signed/ELMISTER.RSA.b64 > /tmp/v0710/signature/META-INF/ELMISTER.RSA
+          echo '61e50d338fe30b7eec718a9124d68ccccf19cedfe7fa4ca56c1c3358e4a80174  /tmp/v0710/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo 'ca91f6446aad407f3cde2797b71427bc12b85a68d6306ea54a2d3c616049edcc  /tmp/v0710/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo 'ef90a4b32cb59c8624dbe46802a1b192fe820bd6643e35ac9748d1fed29d7f05  /tmp/v0710/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v0710/signature
+          zip -q -g -r /tmp/v0710/El-Mister-v0.7.10.apk META-INF
+          jarsigner -verify -verbose -certs /tmp/v0710/El-Mister-v0.7.10.apk | tee /tmp/v0710/jarverify.txt
+          grep -q 'jar verified' /tmp/v0710/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0710/expected.fp
+          keytool -printcert -jarfile /tmp/v0710/El-Mister-v0.7.10.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0710/actual.fp
+          diff -u /tmp/v0710/expected.fp /tmp/v0710/actual.fp
+      - name: Publish update feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0710/El-Mister-v0.7.10.apk el-mister/El-Mister-v0.7.10.apk
+          cp /tmp/v0710/index.html el-mister/source/v0710-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.10.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 31,
+            "versionName": "0.7.10",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.10.apk",
+            "mandatory": false,
+            "changes": [
+              "Corregido el error real que trababa el cierre de temporada al recalcular las otras divisiones",
+              "Continuar al mercado ahora completa ascensos, descensos y posiciones antes de abrir la ventana de 7 días",
+              "Ir al mercado después de una Promoción usa una ruta directa y recupera partidas que hayan quedado detenidas en esa pantalla",
+              "Se mantienen las secuencias conectadas y los nuevos minijuegos de la v0.7.9"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.10.apk el-mister/latest.json el-mister/source/v0710-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.10 real season-end market fix'
+          git push origin HEAD:el-mister-updates
