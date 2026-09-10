@@ -58,8 +58,30 @@ PY
 node --check /tmp/v0812pub/full.js
 node el-mister/release/v0809/test-animation-truth.js
 
-# Create the JAR/APK with META-INF first, avoiding the malformed stream layout from v0.8.11.
-(cd /tmp/v0812pub/final && zip -q -r /tmp/v0812pub/El-Mister-v0.8.12.apk META-INF AndroidManifest.xml classes.dex assets)
+# Build a clean APK containing FILE entries only. Explicit directory entries were what made
+# JarFile/JarInputStream disagree in the rejected v0.8.11/v0.8.12 candidate packages.
+python3 - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
+root=Path('/tmp/v0812pub/final')
+out=Path('/tmp/v0812pub/El-Mister-v0.8.12.apk')
+files=[
+    'META-INF/MANIFEST.MF',
+    'META-INF/ELMISTER.SF',
+    'META-INF/ELMISTER.RSA',
+    'AndroidManifest.xml',
+    'classes.dex',
+    'assets/index.html',
+]
+with ZipFile(out,'w',compression=ZIP_DEFLATED,allowZip64=False) as z:
+    for rel in files:
+        z.write(root/rel, rel)
+with ZipFile(out,'r') as z:
+    names=z.namelist()
+    assert names==files, names
+    assert not any(n.endswith('/') for n in names), names
+print('APK entries:', ', '.join(names))
+PY
 unzip -t /tmp/v0812pub/El-Mister-v0.8.12.apk >/dev/null
 
 jarsigner -verify -verbose -certs /tmp/v0812pub/El-Mister-v0.8.12.apk | tee /tmp/v0812pub/jarverify.txt
@@ -103,7 +125,7 @@ data={
   "mandatory":False,
   "changes":[
     "Corregido el paquete Android: la actualización ahora lleva versionCode nativo 48 y se instala como actualización real",
-    "Corregido el orden interno de firma del APK para que Android no lo rechace como paquete inválido",
+    "Corregida la estructura interna del APK para que Android no lo rechace como paquete inválido",
     "Se mantiene sin cambios la combinación de v0.8.11: simulación visual v0.8.9 + dinámicas históricas del partido",
     "La animación sigue siendo solo visual; goles, decisiones, minijuegos, lesiones, tarjetas y cierre dependen del motor de partido",
     "La carrera guardada se mantiene"
