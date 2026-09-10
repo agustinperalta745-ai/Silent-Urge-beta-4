@@ -24,17 +24,16 @@ PY
 node --check /tmp/v0811pub/full.js
 node el-mister/release/v0809/test-animation-truth.js
 
-# ZIP metadata (timestamps/order) may differ across runners. The cryptographic JAR
-# manifest below validates the actual bytes of every signed entry instead.
+# ZIP metadata may differ across runners; the signed JAR manifest verifies the bytes of every entry.
 (cd /tmp/v0811pub/work && zip -q -r /tmp/v0811pub/El-Mister-v0.8.11.apk .)
 
 base64 -d el-mister/release/v0811-signed/MANIFEST.MF.b64 > /tmp/v0811pub/signature/META-INF/MANIFEST.MF
 base64 -d el-mister/release/v0811-signed/ELMISTER.SF.b64 > /tmp/v0811pub/signature/META-INF/ELMISTER.SF
 base64 -d el-mister/release/v0811-signed/ELMISTER.RSA.b64 > /tmp/v0811pub/signature/META-INF/ELMISTER.RSA
 
-echo '4ea3073087633358786063f43c55be3841619fd60ca0df97fa9450c4ce34507f  /tmp/v0811pub/signature/META-INF/MANIFEST.MF' | sha256sum -c -
-echo '399b0d57d22c6776b8ca4da3d7ae96180315fbc40120e618d4cbe4566800fb7b  /tmp/v0811pub/signature/META-INF/ELMISTER.SF' | sha256sum -c -
-echo '1f43773d60261d37f340cc0dc972d8dad4a138f5d01aaf529218aca3b41be0e4  /tmp/v0811pub/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+echo 'f1ebe4f4f20ace799bb9810c849d74addc181b4c4cdbdf73b8b0105b42e7085c  /tmp/v0811pub/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+echo 'bdb6df779bb2160efe7cbc6ce7b164560d8b3681472b5fc1135ca419fa5b3f39  /tmp/v0811pub/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+echo '8379b34d00c5f73002ddb08df18ce74f96d2e79bfda3636d582e267411984574  /tmp/v0811pub/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
 
 (cd /tmp/v0811pub/signature && zip -q -g -r /tmp/v0811pub/El-Mister-v0.8.11.apk META-INF)
 unzip -t /tmp/v0811pub/El-Mister-v0.8.11.apk >/dev/null
