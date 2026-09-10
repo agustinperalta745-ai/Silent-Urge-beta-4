@@ -1,0 +1,98 @@
+name: Prepare El Mister v0.8.11 latest visual + legacy dynamics
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0811-prepare.yml'
+      - 'el-mister/release/v0811/legacy-dynamics-bridge.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build exact v0.8.11 source and unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0811 && mkdir -p /tmp/v0811/work/assets /tmp/v0811/out
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('el-mister/source/v0809-index.html')
+          s=p.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.9';" in s
+          assert 'const VERSION_CODE=45;' in s
+          s=s.replace("const VERSION='0.8.9';","const VERSION='0.8.11';",1)
+          s=s.replace('const VERSION_CODE=45;','const VERSION_CODE=47;',1)
+          marker='/* ===== El Míster v0.7.12 · cancha animada + intervenciones automáticas ===== */'
+          assert marker in s
+          capture=r'''
+/* ===== v0.8.11 · snapshot de la dinámica exacta anterior a la pantalla nueva ===== */
+(function(){
+  const names=[
+    'simulateSegment','v062ShouldPause','makeMatchScenario','makeKeyPlay','makeRareEvent','resolveMatchChoice',
+    'v062Difficulty','v062DifficultyHtml','v062FinishMiniDecision',
+    'v067ShotAim','v067StopShot','intro79','launch79mini','track79start','anim79track','stop79track',
+    'lane79start','render79lane','pick79lane','mem79start','pick79mem','keeper79start','pick79keeper','mini79done'
+  ];
+  const bag={};
+  for(const n of names){try{const f=eval(n);if(typeof f==='function')bag[n]=f}catch(e){console.warn('em811 capture missing',n)}}
+  window.EM811_LEGACY=bag;
+})();
+'''
+          s=s.replace(marker,capture+'\n'+marker,1)
+          bridge=Path('el-mister/release/v0811/legacy-dynamics-bridge.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+bridge+'\n</script>'+tail
+          Path('/tmp/v0811/index.html').write_text(s,encoding='utf-8')
+          Path('/tmp/v0811/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+
+          node --check /tmp/v0811/full.js
+          node el-mister/release/v0809/test-animation-truth.js
+          grep -q "const VERSION='0.8.11'" /tmp/v0811/index.html
+          grep -q 'const VERSION_CODE=47;' /tmp/v0811/index.html
+          grep -q 'window.EM811_LEGACY=bag' /tmp/v0811/index.html
+          grep -q 'window.em809AnimationTruth' /tmp/v0811/index.html
+          grep -q 'window.em811LegacyDynamicsBridge' /tmp/v0811/index.html
+          grep -q 'f.outcome=Math.random()<.58' /tmp/v0811/index.html
+          grep -q 'simulateSegment(to)' /tmp/v0811/index.html
+          grep -q 'v062ShouldPause(l)' /tmp/v0811/index.html
+          grep -q 'l.scenario=makeMatchScenario(l.stopIndex)' /tmp/v0811/index.html
+
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0811/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0811/work/classes.dex
+          cp /tmp/v0811/index.html /tmp/v0811/work/assets/index.html
+          (cd /tmp/v0811/work && zip -q -r /tmp/v0811/out/unsigned.apk .)
+          unzip -t /tmp/v0811/out/unsigned.apk >/dev/null
+
+      - name: Produce key-independent JAR signing metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0811/out/dummy.apk /tmp/v0811/out/unsigned.apk dummy >/dev/null 2>&1
+          mkdir -p el-mister/release/v0811-prep
+          unzip -p /tmp/v0811/out/dummy.apk META-INF/MANIFEST.MF > el-mister/release/v0811-prep/MANIFEST.MF
+          unzip -p /tmp/v0811/out/dummy.apk META-INF/DUMMY.SF > el-mister/release/v0811-prep/ELMISTER.SF
+          sha256sum /tmp/v0811/out/unsigned.apk | cut -d' ' -f1 > el-mister/release/v0811-prep/unsigned.sha256
+          cp /tmp/v0811/index.html el-mister/source/v0811-index.html
+
+      - name: Commit prepared source and signing metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v0811-prep el-mister/source/v0811-index.html
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.11 exact signing metadata'
+          git push origin HEAD:el-mister-updates
