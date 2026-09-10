@@ -1,15 +1,16 @@
 {
-  "versionCode": 49,
-  "versionName": "0.8.13",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.13.apk",
+  "versionCode": 50,
+  "versionName": "0.8.14",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.14.apk",
   "mandatory": false,
   "changes": [
-    "Recuperación del actualizador: se evita reutilizar el APK fallido que quedaba guardado con el nombre anterior",
-    "El paquete Android y la firma fueron verificados nuevamente antes de publicar",
-    "No se modifica la jugabilidad: se mantiene simulación visual v0.8.9 + dinámicas históricas del partido de v0.8.11",
+    "Corregido el congelamiento al aparecer una intervención: la situación ahora se muestra siempre sobre la cancha detenida",
+    "El render de decisiones deja de pasar por constructores 0.8.x y conserva exactamente la situación generada por la dinámica histórica",
+    "Agregado un seguro para que un fallo de render nunca deje el partido congelado en silencio",
+    "No se modifican la animación 0.8.9, los goles, los minijuegos ni las reglas del partido",
     "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "95277d8efafd972c3f0df82105779a0a9c551695235d3faa1f65f536b7311ef0",
+  "sha256": "617904922dffab068326585c07b6b4b07a2581d87c35e73096183c96a0a3a41a",
   "migration": true
 }
