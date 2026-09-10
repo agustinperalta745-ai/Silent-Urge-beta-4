@@ -1,0 +1,87 @@
+name: Publish El Mister v0.8.6 exact
+on:
+  push:
+    branches: [el-mister-updates]
+    paths: ['.github/workflows/el-mister-v0806-publish-exact.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+      - name: Test zone logic
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0806/zone-logic.js
+          node el-mister/release/v0806/test-zone-logic.js
+      - name: Assemble exact source
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0806 && mkdir -p /tmp/v0806/work/assets /tmp/v0806/sig/META-INF
+          cp el-mister/source/v0805-index.html /tmp/v0806/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0806/index.html'); s=p.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.5';" in s and 'const VERSION_CODE=41;' in s
+          s=s.replace("const VERSION='0.8.5';","const VERSION='0.8.6';",1).replace('const VERSION_CODE=41;','const VERSION_CODE=42;',1)
+          patch=Path('el-mister/release/v0806/zone-logic.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1); s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          Path('/tmp/v0806/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/v0806/full.js
+          grep -q 'em806ZoneContext' /tmp/v0806/index.html
+          grep -q 'em805QueueGoal' /tmp/v0806/index.html
+          grep -q 'em805BarParams' /tmp/v0806/index.html
+      - name: Build and verify exact signed APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0806/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0806/work/classes.dex
+          cp /tmp/v0806/index.html /tmp/v0806/work/assets/index.html
+          (cd /tmp/v0806/work && zip -q -r /tmp/v0806/El-Mister-v0.8.6.apk .)
+          base64 -d el-mister/release/v0806-signed/MANIFEST.MF.b64 > /tmp/v0806/sig/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0806-signed/ELMISTER.SF.b64 > /tmp/v0806/sig/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0806-signed/ELMISTER.RSA.b64 > /tmp/v0806/sig/META-INF/ELMISTER.RSA
+          (cd /tmp/v0806/sig && zip -q -g -r /tmp/v0806/El-Mister-v0.8.6.apk META-INF)
+          jarsigner -verify -verbose -certs /tmp/v0806/El-Mister-v0.8.6.apk | tee /tmp/v0806/verify.txt
+          grep -q 'jar verified' /tmp/v0806/verify.txt
+          keytool -printcert -file el-mister/release-cert.pem | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0806/expected.fp
+          keytool -printcert -jarfile /tmp/v0806/El-Mister-v0.8.6.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v0806/actual.fp
+          diff -u /tmp/v0806/expected.fp /tmp/v0806/actual.fp
+      - name: Publish v0.8.6
+        run: |
+          set -euo pipefail
+          cp /tmp/v0806/El-Mister-v0.8.6.apk el-mister/El-Mister-v0.8.6.apk
+          cp /tmp/v0806/index.html el-mister/source/v0806-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.8.6.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 42,
+            "versionName": "0.8.6",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.6.apk",
+            "mandatory": false,
+            "changes": [
+              "La cancha manda: la zona y la posesión reales de la pelota definen las decisiones disponibles",
+              "Cerca de tu área aparecen decisiones defensivas, de arquero y salida; en mitad de cancha, progresión y presión; cerca del área rival con posesión propia, remates, centros, duelos y búsqueda de faltas",
+              "Ya no se mueve artificialmente la cancha para justificar una decisión: cada situación nace de la jugada que ya se estaba viendo",
+              "Las decisiones encadenadas hacen avanzar o retroceder la jugada de forma coherente",
+              "Gol: saque del medio; banda: lateral; línea de fondo: saque de arco o córner según el último toque",
+              "Se mantienen los minijuegos, su dificultad adaptativa y la coordinación visual de goles de la 0.8.5",
+              "No se modificó el movimiento normal, los pases ni las físicas de la animación 2D"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.8.6.apk el-mister/source/v0806-index.html el-mister/latest.json
+          git commit -m 'Publish El Mister v0.8.6 zone-driven match logic'
+          git push origin HEAD:el-mister-updates
