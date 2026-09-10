@@ -1,0 +1,123 @@
+name: Publish El Mister v0.7.9
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v079-publish.yml'
+      - 'el-mister/release/v079/**'
+      - 'el-mister/release/v079-signed/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Assemble v0.7.9 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v079
+          mkdir -p /tmp/v079/work/assets /tmp/v079/signature/META-INF
+          cat el-mister/release/v079/part00.js \
+              el-mister/release/v079/part01.js \
+              el-mister/release/v079/part02.js \
+              el-mister/release/v079/part03.js \
+              el-mister/release/v079/part04.js \
+              el-mister/release/v079/part05.js > /tmp/v079/patch.js
+          node --check /tmp/v079/patch.js
+          cp el-mister/source/v078-index.html /tmp/v079/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v079/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.7.8';" not in s or 'const VERSION_CODE=29;' not in s:
+              raise SystemExit('v0.7.8 version markers not found')
+          s=s.replace("const VERSION='0.7.8';", "const VERSION='0.7.9';", 1)
+          s=s.replace('const VERSION_CODE=29;', 'const VERSION_CODE=30;', 1)
+          patch=Path('/tmp/v079/patch.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v079/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v079/full.js
+          grep -q "const VERSION='0.7.9'" /tmp/v079/index.html
+          grep -q 'const VERSION_CODE=30' /tmp/v079/index.html
+          grep -q 'MISMA JUGADA' /tmp/v079/index.html
+          grep -q 'Saque lateral en mitad de cancha' /tmp/v079/index.html
+          grep -q 'SALIDA BAJO PRESIÓN' /tmp/v079/index.html
+          grep -q 'v079MarketShellInit' /tmp/v079/index.html
+
+      - name: Build unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v079/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v079/work/classes.dex
+          cp /tmp/v079/index.html /tmp/v079/work/assets/index.html
+          cd /tmp/v079/work
+          zip -q -r /tmp/v079/El-Mister-v0.7.9.apk .
+          unzip -t /tmp/v079/El-Mister-v0.7.9.apk >/dev/null
+
+      - name: Attach verified release signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/release/v079-signed/MANIFEST.MF.b64 > /tmp/v079/signature/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v079-signed/ELMISTER.SF.b64 > /tmp/v079/signature/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v079-signed/ELMISTER.RSA.b64 > /tmp/v079/signature/META-INF/ELMISTER.RSA
+          echo '6ec448cbd3285d80700dbf47bf716c816befd735c96228e82ffeea6bb7a708ed  /tmp/v079/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '3b7062e9da505845ee6c5dc04d52d2bc469fea2cc1f8a893d8968c0acd7be6fa  /tmp/v079/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '6bdf84edb3ced59d8cdda13cedece648e33f3b241c91ca5d61dcdd7238d2c109  /tmp/v079/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          cd /tmp/v079/signature
+          zip -q -g -r /tmp/v079/El-Mister-v0.7.9.apk META-INF
+          unzip -t /tmp/v079/El-Mister-v0.7.9.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v079/El-Mister-v0.7.9.apk | tee /tmp/v079/jarverify.txt
+          grep -q 'jar verified' /tmp/v079/jarverify.txt
+          keytool -printcert -file "$GITHUB_WORKSPACE/el-mister/release-cert.pem" | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v079/expected.fp
+          keytool -printcert -jarfile /tmp/v079/El-Mister-v0.7.9.apk | sed -n 's/.*SHA256: //p' | tr -d ': ' > /tmp/v079/actual.fp
+          test -s /tmp/v079/expected.fp && test -s /tmp/v079/actual.fp
+          diff -u /tmp/v079/expected.fp /tmp/v079/actual.fp
+          unzip -p /tmp/v079/El-Mister-v0.7.9.apk assets/index.html | grep -q "const VERSION='0.7.9'"
+          unzip -p /tmp/v079/El-Mister-v0.7.9.apk assets/index.html | grep -q 'v079MarketShellInit'
+
+      - name: Publish update feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v079/El-Mister-v0.7.9.apk el-mister/El-Mister-v0.7.9.apk
+          cp /tmp/v079/index.html el-mister/source/v079-index.html
+          SHA=$(sha256sum el-mister/El-Mister-v0.7.9.apk | awk '{print $1}')
+          cat > el-mister/latest.json <<EOF
+          {
+            "versionCode": 30,
+            "versionName": "0.7.9",
+            "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.9.apk",
+            "mandatory": false,
+            "changes": [
+              "Partidos más conectados: una decisión puede abrir una secuencia completa dentro de la misma jugada",
+              "Nuevos minijuegos simples: regate, pase filtrado, salida bajo presión, pase atrás, centro, remate de primera y cortes defensivos",
+              "El partido reacciona al contexto: laterales cansados, presión rival, laterales altos y faltas provocadas generan situaciones coherentes",
+              "Buscar el contacto puede producir tiros libres en distintas zonas y continuar la jugada desde esa pelota parada",
+              "Corregido el bloqueo al terminar la temporada: Continuar al mercado ahora entra siempre a la ventana de 7 días"
+            ],
+            "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
+            "sha256": "$SHA",
+            "migration": true
+          }
+          EOF
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/El-Mister-v0.7.9.apk el-mister/latest.json el-mister/source/v079-index.html
+          git diff --cached --quiet || git commit -m 'Publish El Mister v0.7.9 connected match sequences and market fix'
+          git push origin HEAD:el-mister-updates
