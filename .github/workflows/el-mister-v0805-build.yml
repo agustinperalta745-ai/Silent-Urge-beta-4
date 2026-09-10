@@ -1,0 +1,63 @@
+name: Build El Mister v0.8.5 exact unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0805-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Regression tests
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0805/match-truth-minigames.js
+          node el-mister/release/v0805/test-match-truth-minigames.js
+      - name: Assemble exact v0.8.5 source
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0805 && mkdir -p /tmp/v0805/work/assets
+          cp el-mister/source/v0804-index.html /tmp/v0805/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0805/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.4';" not in s or 'const VERSION_CODE=40;' not in s:
+              raise SystemExit('v0.8.4 markers not found')
+          s=s.replace("const VERSION='0.8.4';", "const VERSION='0.8.5';", 1)
+          s=s.replace('const VERSION_CODE=40;', 'const VERSION_CODE=41;', 1)
+          patch=Path('el-mister/release/v0805/match-truth-minigames.js').read_text(encoding='utf-8')
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+patch+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0805/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0805/full.js
+          grep -q 'em805QueueGoal' /tmp/v0805/index.html
+          grep -q 'em805BarParams' /tmp/v0805/index.html
+          grep -q 'em804StageScenario' /tmp/v0805/index.html
+          grep -q 'launch79mini' /tmp/v0805/index.html
+      - name: Build exact unsigned APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0805/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0805/work/classes.dex
+          cp /tmp/v0805/index.html /tmp/v0805/work/assets/index.html
+          cd /tmp/v0805/work
+          zip -q -r /tmp/v0805/El-Mister-v0.8.5-unsigned.apk .
+          unzip -t /tmp/v0805/El-Mister-v0.8.5-unsigned.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0805-exact-unsigned
+          path: /tmp/v0805/El-Mister-v0.8.5-unsigned.apk
+          retention-days: 3
