@@ -23,8 +23,11 @@ jobs:
         run: |
           set -euo pipefail
           node --check el-mister/release/v0800/match-engine.js
+          node --check el-mister/release/v0800/match-engine-hotfix.js
           node --check el-mister/release/v0800/test-runtime.js
+          node --check el-mister/release/v0800/test-hotfix.js
           node el-mister/release/v0800/test-runtime.js
+          node el-mister/release/v0800/test-hotfix.js
       - name: Assemble v0.8.0 source
         shell: bash
         run: |
@@ -40,9 +43,10 @@ jobs:
               raise SystemExit('v0.7.14 markers not found')
           s=s.replace("const VERSION='0.7.14';", "const VERSION='0.8.0';", 1)
           s=s.replace('const VERSION_CODE=35;', 'const VERSION_CODE=36;', 1)
-          patch=Path('el-mister/release/v0800/match-engine.js').read_text(encoding='utf-8')
+          engine=Path('el-mister/release/v0800/match-engine.js').read_text(encoding='utf-8')
+          hotfix=Path('el-mister/release/v0800/match-engine-hotfix.js').read_text(encoding='utf-8')
           head,tail=s.rsplit('</script>',1)
-          s=head+'\n'+patch+'\n</script>'+tail
+          s=head+'\n'+engine+'\n'+hotfix+'\n</script>'+tail
           p.write_text(s,encoding='utf-8')
           js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
           Path('/tmp/v0800/full.js').write_text(js,encoding='utf-8')
@@ -51,10 +55,14 @@ jobs:
           grep -q "const VERSION='0.8.0'" /tmp/v0800/index.html
           grep -q 'const EM80=' /tmp/v0800/index.html
           grep -q 'em80CarrierThink' /tmp/v0800/index.html
-          grep -q 'em80EmergencyDecision' /tmp/v0800/index.html
+          grep -q 'em801RecoverLegacyDecision' /tmp/v0800/index.html
+          grep -q 'em801ApplyChoice' /tmp/v0800/index.html
+          grep -q 'em801Kickoff' /tmp/v0800/index.html
           grep -q 'MOTOR 2D' /tmp/v0800/index.html
           grep -q 'v0711EnsureRosterIdentity' /tmp/v0800/index.html
           grep -q 'start79' /tmp/v0800/index.html
+          grep -q 'launch79mini' /tmp/v0800/index.html
+          grep -q 'v067StartShotGame' /tmp/v0800/index.html
           base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0800/work/AndroidManifest.xml
           base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0800/work/classes.dex
           cp /tmp/v0800/index.html /tmp/v0800/work/assets/index.html
