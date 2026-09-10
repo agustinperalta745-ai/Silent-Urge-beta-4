@@ -12,6 +12,6 @@
     "Se añadió recuperación de emergencia para evitar que una pausa de intervención deje el partido congelado"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "784f024021cc1efa3fbf76c6b3b81bf14010e496f657be378cd11ad8f69b70ca",
+  "sha256": "488caaa63de20e6720e86f0dde461088e26343e8ac34a0e2d7fa8388d6c2110c",
   "migration": true
 }
