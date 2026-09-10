@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>El Míster · Match2D Prototype</title>
+<style>
+:root{--bg:#071018;--panel:#0e1b26;--line:#213747;--text:#f4f7f9;--muted:#8da4b3;--gold:#f3bf4d;--green:#55d693;--red:#ff6d73}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}.app{max-width:600px;margin:auto;padding:14px}.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.head b{font-size:17px}.head small{color:var(--muted)}.score{font-size:24px;font-weight:900}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;margin-bottom:12px}.pitchWrap{position:relative;aspect-ratio:100/64;border-radius:15px;overflow:hidden;background:#173c27;border:2px solid rgba(255,255,255,.22)}canvas{display:block;width:100%;height:100%}.status{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.pill{font-size:11px;border:1px solid #2d4b5f;border-radius:999px;padding:6px 9px;color:#b9cbd5}.pill.hot{border-color:#d49235;color:#ffe0a0}.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn,.choice{border:1px solid #365267;background:#122432;color:white;border-radius:13px;padding:12px;font-weight:800}.btn.primary{background:#e9b13e;color:#111820;border:0}.decision{display:none}.decision.show{display:block}.decision h2{font-size:19px;margin:6px 0}.decision p{color:#b5c4cc;font-size:13px;line-height:1.4}.choice{width:100%;display:block;text-align:left;margin:8px 0}.choice span{display:block;color:var(--muted);font-size:11px;margin-top:4px}.log{font-size:11px;color:#aabcc6;max-height:120px;overflow:auto}.log div{padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}.ok{color:var(--green)}.warn{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head"><div><b>El Míster · Match2D</b><br><small>Prototipo aislado — no toca la app publicada</small></div><div class="score" id="score">0–0</div></div>
+  <div class="card">
+    <div class="pitchWrap"><canvas id="pitch" width="1000" height="640"></canvas></div>
+    <div class="status"><span class="pill" id="minute">0'</span><span class="pill" id="poss">Posesión: Local</span><span class="pill" id="tactic">Plan: Equilibrado</span><span class="pill" id="state">En juego</span></div>
+  </div>
+  <div class="card decision" id="decision"></div>
+  <div class="card controls">
+    <button class="btn primary" id="start">▶ Iniciar / reanudar</button>
+    <button class="btn" id="pause">⏸ Pausar visual</button>
+    <button class="btn" id="force">🧠 Forzar situación</button>
+    <button class="btn" id="reset">↻ Reiniciar</button>
+  </div>
+  <div class="card"><b style="font-size:12px">Eventos del prototipo</b><div class="log" id="log"></div></div>
+</div>
+<script src="match2d-engine.js"></script>
+<script src="decision-bridge.js"></script>
+<script>
+const $=s=>document.querySelector(s),canvas=$('#pitch'),ctx=canvas.getContext('2d'),logEl=$('#log');
+const log=t=>{let d=document.createElement('div');d.textContent=t;logEl.prepend(d)};
+const engine=new Match2DEngine({msPerMatchMinute:650,onFrame:renderFrame,onEvent:e=>{if(e.type==='goal')log(`${Math.round(e.minute)}' ⚽ ${e.team==='home'?'Local':'Visitante'} · ${e.score.home}-${e.score.away}`);if(e.type==='visualDecision')log(`🧠 Visual adaptado: ${e.label}`);}});
+const bridge=new HistoricalDecisionBridge(engine);let nextDemoMinute=14,scenarioIndex=0;
+const demoScenarios=[
+ {kind:'tactical',t:'El partido está parejo y se juega en mitad de cancha',d:'Ninguno logra imponerse con claridad.',o:[{t:'Acelerar por bandas',h:'Buscás amplitud y duelos individuales.',e:{att:.013,def:-.004,fat:1},set:'fullbacksHigh'},{t:'Juntar pases por dentro',h:'Intentás ganar el mediocampo.',e:{att:.007,def:.010},set:'possession'},{t:'Jugar más directo',h:'Saltás líneas buscando al delantero.',e:{att:.011,def:-.002},set:'direct'}]},
+ {kind:'tactical',t:'El rival te está metiendo atrás',d:'Viene encadenando llegadas y te cuesta salir de tu campo.',o:[{t:'Salir con pases cortos',h:'Intentás quitarle la pelota y enfriar la presión.',e:{att:.005,def:.008},set:'possession'},{t:'Buscar rápido a los extremos',h:'Saltás la presión y atacás el espacio.',e:{att:.014,def:-.004},set:'direct'},{t:'Cerrar líneas y aguantar',h:'Priorizás defender el área.',e:{att:-.008,def:.020},set:'lowBlock'}]},
+ {kind:'tactical',t:'Necesitás empujar más arriba',d:'El rival está cómodo defendiendo el resultado.',o:[{t:'Presionar la salida',h:'Intentás recuperar cerca del área rival.',e:{att:.018,def:-.006,fat:2},set:'pressHigh'},{t:'Cargar el área con otro atacante',h:'Ganás presencia arriba, perdés una cobertura.',e:{att:.022,def:-.012,fat:1},set:'extraForward'},{t:'Mover la pelota de lado a lado',h:'Buscás abrir huecos sin romper la estructura.',e:{att:.010,def:.006},set:'possession'}]}
+];
+function historicalResolveMatchChoice(i){const s=bridge.pendingScenario;if(!s)return;const o=s.o[i];log(`✅ Decisión histórica resuelta: ${o.t}`);bridge.mirrorChoice(i,'home');closeDecision();bridge.resumeAfterHistoricalResolution();nextDemoMinute=engine.state.minute+16;}
+function showHistoricalScenario(s){if(!bridge.pauseForScenario(s))return;const root=$('#decision');root.classList.add('show');root.innerHTML=`<small class="warn">SITUACIÓN DEL SISTEMA HISTÓRICO</small><h2>${s.t}</h2><p>${Math.round(engine.state.minute)}' · ${s.d}</p>${s.o.map((o,i)=>`<button class="choice" data-i="${i}"><b>${o.t}</b><span>${o.h}</span></button>`).join('')}`;root.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',()=>historicalResolveMatchChoice(Number(b.dataset.i))));}
+function closeDecision(){const r=$('#decision');r.classList.remove('show');r.innerHTML='';}
+function drawPitch(){const w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#173c27';ctx.fillRect(0,0,w,h);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=4;ctx.strokeRect(20,20,w-40,h-40);ctx.beginPath();ctx.moveTo(w/2,20);ctx.lineTo(w/2,h-20);ctx.stroke();ctx.beginPath();ctx.arc(w/2,h/2,78,0,Math.PI*2);ctx.stroke();ctx.strokeRect(20,h*.25,w*.16,h*.5);ctx.strokeRect(w-20-w*.16,h*.25,w*.16,h*.5);ctx.strokeRect(20,h*.36,w*.065,h*.28);ctx.strokeRect(w-20-w*.065,h*.36,w*.065,h*.28);ctx.beginPath();ctx.arc(w/2,h/2,5,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.7)';ctx.fill();}
+function renderFrame(s){drawPitch();for(const p of s.players){const x=p.x/100*canvas.width,y=p.y/64*canvas.height;ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fillStyle=p.team==='home'?'#64a7ff':'#ff6d73';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.8)';ctx.stroke();}const bx=s.ball.x/100*canvas.width,by=s.ball.y/64*canvas.height;ctx.beginPath();ctx.arc(bx,by,7,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();ctx.strokeStyle='#111';ctx.stroke();$('#score').textContent=`${s.score.home}–${s.score.away}`;$('#minute').textContent=`${Math.floor(s.minute)}'`;$('#poss').textContent=`Posesión: ${s.possession==='home'?'Local':'Visitante'}`;$('#state').textContent=s.paused?'Pausado por decisión':'En juego';$('#state').className='pill'+(s.paused?' hot':'');const vd=s.visualDecision;$('#tactic').textContent=`Plan: ${vd?vd.label:'Equilibrado'}`;if(!s.paused&&!s.finished&&s.minute>=nextDemoMinute){const sc=demoScenarios[scenarioIndex%demoScenarios.length];scenarioIndex++;showHistoricalScenario(sc);}}
+$('#start').addEventListener('click',()=>{if(!engine.state.running)engine.start();else engine.resume()});
+$('#pause').addEventListener('click',()=>engine.state.paused?engine.resume():engine.pause('manual-visual'));
+$('#force').addEventListener('click',()=>{if(!bridge.pendingScenario)showHistoricalScenario(demoScenarios[scenarioIndex++%demoScenarios.length])});
+$('#reset').addEventListener('click',()=>{engine.stop();engine.reset();bridge.pendingScenario=null;closeDecision();nextDemoMinute=14;scenarioIndex=0;log('↻ Reiniciado')});
+renderFrame(engine.snapshot());
+</script>
+</body>
+</html>
