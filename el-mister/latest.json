@@ -1,16 +1,17 @@
 {
-  "versionCode": 50,
-  "versionName": "0.8.14",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.14.apk",
+  "versionCode": 51,
+  "versionName": "0.8.15",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.15.apk",
   "mandatory": false,
   "changes": [
-    "Corregido el congelamiento al aparecer una intervención: la situación ahora se muestra siempre sobre la cancha detenida",
-    "El render de decisiones deja de pasar por constructores 0.8.x y conserva exactamente la situación generada por la dinámica histórica",
-    "Agregado un seguro para que un fallo de render nunca deje el partido congelado en silencio",
-    "No se modifican la animación 0.8.9, los goles, los minijuegos ni las reglas del partido",
+    "Los goles ya no teletransportan la pelota: la jugada se representa desde la posición real de la pelota y el marcador cambia recién cuando entra",
+    "Si cambia la posesión antes de un gol, la animación muestra la recuperación y la progresión hacia el otro arco en lugar de saltar de punta a punta",
+    "Cada partido garantiza al menos dos oportunidades de intervención del DT, manteniendo cantidad variable según el contexto",
+    "Las situaciones, decisiones y minijuegos siguen siendo los históricos; no se agregan menús del Motor 2D",
+    "Se mantiene la corrección 0.8.14 para que toda situación generada se muestre sobre la cancha congelada",
     "La carrera guardada se mantiene"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "617904922dffab068326585c07b6b4b07a2581d87c35e73096183c96a0a3a41a",
+  "sha256": "d295f0474a85267c4ef1fe1c30533a451618f6901305f975a95498a4a3a22ac4",
   "migration": true
 }
