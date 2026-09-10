@@ -1,0 +1,142 @@
+name: Prepare El Mister v0.8.12 native package fix
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0812-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Build v0.8.12 with real Android versionCode 48
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0812 && mkdir -p /tmp/v0812/work/assets /tmp/v0812/out el-mister/release/v0812-prep
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('el-mister/source/v0811-index.html')
+          s=p.read_text(encoding='utf-8')
+          assert "const VERSION='0.8.11';" in s
+          assert 'const VERSION_CODE=47;' in s
+          s=s.replace("const VERSION='0.8.11';","const VERSION='0.8.12';",1)
+          s=s.replace('const VERSION_CODE=47;','const VERSION_CODE=48;',1)
+          Path('/tmp/v0812/index.html').write_text(s,encoding='utf-8')
+          Path('/tmp/v0812/full.js').write_text(s.split('<script>',1)[1].rsplit('</script>',1)[0],encoding='utf-8')
+          PY
+
+          node --check /tmp/v0812/full.js
+          node el-mister/release/v0809/test-animation-truth.js
+          grep -q "const VERSION='0.8.12'" /tmp/v0812/index.html
+          grep -q 'const VERSION_CODE=48;' /tmp/v0812/index.html
+          grep -q 'window.EM811_LEGACY=bag' /tmp/v0812/index.html
+          grep -q 'window.em809AnimationTruth' /tmp/v0812/index.html
+          grep -q 'window.em811LegacyDynamicsBridge' /tmp/v0812/index.html
+
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0812/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          p=Path('/tmp/v0812/AndroidManifest.xml')
+          b=bytearray(p.read_bytes())
+          pos=8; strings=[]; changed=False
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8)
+                  utf8=bool(flags&0x100)
+                  offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]
+                  base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80: return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16)
+                  attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode':
+                              vsize,res0,vtype,data=struct.unpack_from('<HBBI',b,ap+12)
+                              assert vtype==0x10, (vtype,data)
+                              struct.pack_into('<I',b,ap+16,48)
+                              changed=True
+                          ap += attrSize
+              pos += sz
+          assert changed, 'native versionCode attribute not found'
+          p.write_bytes(b)
+          # Re-parse just enough to verify the actual native value.
+          pos=8; strings=[]; found=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8); utf8=bool(flags&0x100); offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]; base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16); attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for i in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': found=struct.unpack_from('<I',b,ap+16)[0]
+                          ap+=attrSize
+              pos+=sz
+          assert found==48, found
+          print('Native Android versionCode:',found)
+          PY
+
+          cp /tmp/v0812/AndroidManifest.xml /tmp/v0812/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0812/work/classes.dex
+          cp /tmp/v0812/index.html /tmp/v0812/work/assets/index.html
+          (cd /tmp/v0812/work && zip -q -r /tmp/v0812/out/unsigned.apk .)
+          unzip -t /tmp/v0812/out/unsigned.apk >/dev/null
+
+      - name: Produce byte exact signing metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -alias dummy -keyalg RSA -keysize 3072 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -dname 'CN=Dummy' -validity 1 >/dev/null 2>&1
+          jarsigner -digestalg SHA-384 -sigalg SHA384withRSA -keystore /tmp/dummy.p12 -storetype PKCS12 -storepass changeit -keypass changeit -signedjar /tmp/v0812/out/dummy.apk /tmp/v0812/out/unsigned.apk dummy >/dev/null 2>&1
+          unzip -p /tmp/v0812/out/dummy.apk META-INF/MANIFEST.MF | base64 -w0 > el-mister/release/v0812-prep/MANIFEST.MF.b64
+          unzip -p /tmp/v0812/out/dummy.apk META-INF/DUMMY.SF | base64 -w0 > el-mister/release/v0812-prep/ELMISTER.SF.b64
+          base64 -w0 /tmp/v0812/AndroidManifest.xml > el-mister/source/v0812-AndroidManifest.xml.b64
+          cp /tmp/v0812/index.html el-mister/source/v0812-index.html
+
+      - name: Commit prepared source and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/release/v0812-prep el-mister/source/v0812-index.html el-mister/source/v0812-AndroidManifest.xml.b64
+          git diff --cached --quiet || git commit -m 'Prepare El Mister v0.8.12 native package metadata'
+          git push origin HEAD:el-mister-updates
