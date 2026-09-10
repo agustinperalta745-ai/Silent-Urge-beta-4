@@ -1,0 +1,157 @@
+name: Publish El Mister v0.8.23 static match situations
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0823-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+          fetch-depth: 0
+
+      - name: Reconstruct exact v0.8.23 app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0823pub
+          mkdir -p /tmp/v0823pub/work/assets /tmp/v0823pub/work/META-INF
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('el-mister/source/v0822-index.html').read_text(encoding='utf-8')
+          module=Path('el-mister/scenematch/scenematch-v0823-static.js').read_text(encoding='utf-8')
+          assert "const VERSION='0.8.22';" in base
+          assert 'const VERSION_CODE=58;' in base
+          assert 'requestAnimationFrame' not in module
+          assert 'startFrames(' not in module
+          assert "mode:'static-situation-image'" in module
+          assert 'animated:false' in module
+          assert 'randomMotion:false' in module
+          assert 'horizontal:true' in module
+          assert 'em80DecisionPitchHtml=decisionPitch' in module
+          assert 'simulateSegment(to)' in module
+          base=base.replace("const VERSION='0.8.22';","const VERSION='0.8.23';",1)
+          base=base.replace('const VERSION_CODE=58;','const VERSION_CODE=59;',1)
+          head,tail=base.rsplit('</script>',1)
+          marker="window.em823Build={version:'0.8.23',versionCode:59,change:'static-situation-image-no-animation'};"
+          out=head+'\n'+module+'\n\n'+marker+'\n</script>'+tail
+          Path('/tmp/v0823pub/work/assets/index.html').write_text(out,encoding='utf-8')
+          Path('/tmp/v0823pub/index.html').write_text(out,encoding='utf-8')
+          js=out.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0823pub/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0823pub/full.js
+          test "$(sha256sum /tmp/v0823pub/index.html | awk '{print $1}')" = '5267954d7bc453a8dcf9d46fd10c5b3c2209702fdd5e755c197c0cef24d66d40'
+          grep -q "const VERSION='0.8.23';" /tmp/v0823pub/index.html
+          grep -q 'const VERSION_CODE=59;' /tmp/v0823pub/index.html
+          grep -q "mode:'static-situation-image'" /tmp/v0823pub/index.html
+          grep -q 'animated:false' /tmp/v0823pub/index.html
+          grep -q 'randomMotion:false' /tmp/v0823pub/index.html
+          grep -q 'Así está planteada la jugada' /tmp/v0823pub/index.html
+
+      - name: Reconstruct and verify signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v0823-AndroidManifest.xml.b64 > /tmp/v0823pub/work/AndroidManifest.xml
+          base64 -d el-mister/source/v0823-classes.dex.b64 > /tmp/v0823pub/work/classes.dex
+          base64 -d el-mister/release/v0823-signed/MANIFEST.MF.b64 > /tmp/v0823pub/work/META-INF/MANIFEST.MF
+          base64 -d el-mister/release/v0823-signed/ELMISTER.SF.b64 > /tmp/v0823pub/work/META-INF/ELMISTER.SF
+          base64 -d el-mister/release/v0823-signed/ELMISTER.RSA.b64 > /tmp/v0823pub/work/META-INF/ELMISTER.RSA
+
+          cd /tmp/v0823pub/work
+          zip -q -D /tmp/v0823pub/El-Mister-v0.8.23.apk META-INF/MANIFEST.MF META-INF/ELMISTER.SF META-INF/ELMISTER.RSA
+          zip -q -D /tmp/v0823pub/El-Mister-v0.8.23.apk AndroidManifest.xml assets/index.html classes.dex
+          cd "$GITHUB_WORKSPACE"
+
+          unzip -t /tmp/v0823pub/El-Mister-v0.8.23.apk >/dev/null
+          jarsigner -verify -verbose -certs /tmp/v0823pub/El-Mister-v0.8.23.apk > /tmp/v0823pub/verify.txt 2>&1
+          grep -q 'jar verified' /tmp/v0823pub/verify.txt
+
+          FPR=$(keytool -printcert -jarfile /tmp/v0823pub/El-Mister-v0.8.23.apk 2>/dev/null | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n1)
+          EXPECTED='87:11:11:3A:4D:61:A2:06:FC:5B:17:8E:F8:70:B6:6A:97:1E:FF:6C:F4:CF:23:BD:43:FC:6D:2D:0B:CF:C2:57'
+          test "$FPR" = "$EXPECTED"
+
+          strings /tmp/v0823pub/work/classes.dex | grep -q 'El-Mister-upd823.apk'
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          b=Path('/tmp/v0823pub/work/AndroidManifest.xml').read_bytes()
+          pos=8; strings=[]; package=None; version=None
+          while pos < len(b):
+              typ,hs,sz=struct.unpack_from('<HHI',b,pos)
+              if typ==0x0001:
+                  sc,sty,flags,ss,sts=struct.unpack_from('<IIIII',b,pos+8)
+                  utf8=bool(flags&0x100)
+                  offs=[struct.unpack_from('<I',b,pos+hs+4*i)[0] for i in range(sc)]
+                  base=pos+ss
+                  def r8(q):
+                      x=b[q]; q+=1
+                      if x&0x80:return ((x&0x7f)<<8)|b[q],q+1
+                      return x,q
+                  strings=[]
+                  for o in offs:
+                      q=base+o
+                      if utf8:
+                          _,q=r8(q); ln,q=r8(q); strings.append(bytes(b[q:q+ln]).decode('utf-8'))
+                      else:
+                          ln=struct.unpack_from('<H',b,q)[0]; q+=2; strings.append(bytes(b[q:q+ln*2]).decode('utf-16le'))
+              elif typ==0x0102 and strings:
+                  ns,name=struct.unpack_from('<II',b,pos+16)
+                  attrStart,attrSize,attrCount=struct.unpack_from('<HHH',b,pos+24)
+                  if strings[name]=='manifest':
+                      ap=pos+16+attrStart
+                      for _ in range(attrCount):
+                          ans,aname,raw=struct.unpack_from('<III',b,ap)
+                          if strings[aname]=='versionCode': version=struct.unpack_from('<I',b,ap+16)[0]
+                          if strings[aname]=='package': package=strings[raw]
+                          ap+=attrSize
+              pos+=sz
+          assert package=='com.elmister.carrera', package
+          assert version==59, version
+          PY
+
+      - name: Publish v0.8.23 to the in-app updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/v0823pub/index.html el-mister/source/v0823-index.html
+          cp /tmp/v0823pub/El-Mister-v0.8.23.apk el-mister/El-Mister-v0.8.23.apk
+          SHA=$(sha256sum /tmp/v0823pub/El-Mister-v0.8.23.apk | awk '{print $1}')
+          python3 - "$SHA" <<'PY'
+          import json,sys
+          sha=sys.argv[1]
+          data={
+            'versionCode':59,
+            'versionName':'0.8.23',
+            'apkUrl':'https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.23.apk',
+            'mandatory':False,
+            'changes':[
+              'Nueva vista de partido: la cancha muestra una imagen táctica estática de cada situación',
+              'Se eliminaron los movimientos y animaciones de futbolistas dentro de la escena',
+              'Cada situación coloca jugadores, pelota y flechas en una posición fija que explica lo que está pasando',
+              'Las pantallas de decisión también muestran una imagen táctica fija basada en la jugada planteada',
+              'Formación, táctica y expulsiones se reflejan sin alterar el motor histórico, decisiones ni minijuegos',
+              'La carrera guardada se mantiene'
+            ],
+            'onlineUrl':'https://el-mister-online.agustinperalta745.workers.dev',
+            'sha256':sha,
+            'migration':True
+          }
+          open('el-mister/latest.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+
+          git config user.name 'El Mister Update Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add el-mister/source/v0823-index.html el-mister/El-Mister-v0.8.23.apk el-mister/latest.json
+          git commit -m 'Publish El Mister v0.8.23 static match situations'
+          git push origin HEAD:el-mister-updates
