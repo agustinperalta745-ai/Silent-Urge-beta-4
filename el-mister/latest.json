@@ -1,17 +1,17 @@
 {
-  "versionCode": 34,
-  "versionName": "0.7.13",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.13.apk",
+  "versionCode": 35,
+  "versionName": "0.7.14",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.7.14.apk",
   "mandatory": false,
   "changes": [
-    "La simulación visual deja de mover jugadores y pelota al azar",
-    "La pelota ahora tiene un poseedor real y sólo cambia mediante pases, conducción o una pérdida",
-    "Los jugadores se mueven más lento y respetan su zona, la formación y el movimiento del bloque",
-    "El equipo acompaña la posesión y reacciona de forma coherente cuando cambia quién tiene la pelota",
-    "Los pases tienen recorrido visible y las pérdidas pasan al rival que corta la jugada",
-    "Se mantienen las intervenciones automáticas, jugadas conectadas, minijuegos, cambios y decisiones tácticas"
+    "La cancha deja de mover a todo el equipo como un bloque: cada posición tiene recorridos y apoyos propios según la jugada",
+    "Laterales, extremos, mediocampistas, centrales y delantero ahora reaccionan distinto en salida, progresión, último tercio y defensa",
+    "Las jugadas pueden terminar en remates, centros, pases atrás, filtrados, cambios de frente, conducciones, intercepciones, atajadas y despejes",
+    "Las pérdidas ya no parecen pases voluntarios al rival: se representan como cortes e intercepciones sobre la trayectoria",
+    "La situación visual del partido vuelve a alimentar las decisiones del DT, secuencias conectadas y minijuegos ya existentes",
+    "Se corrigió el sistema de pausas para garantizar intervenciones variables durante el partido sin volverlas cortes fijos"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "29d4c24a3e05e76baedf4eda649665346ac12832a2c816a86fa3f2e2fe996ec3",
+  "sha256": "6c0b5c590763a1b50216134cd93fe363935d770105f1246c1b978ffa9efcea23",
   "migration": true
 }
