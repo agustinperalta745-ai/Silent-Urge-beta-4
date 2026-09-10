@@ -1,17 +1,17 @@
 {
-  "versionCode": 36,
-  "versionName": "0.8.0",
-  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.0.apk",
+  "versionCode": 37,
+  "versionName": "0.8.1",
+  "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.1.apk",
   "mandatory": false,
   "changes": [
-    "Nuevo motor 2D de partido en Canvas: se reemplaza la simulación anterior de puntos HTML",
-    "Los 22 jugadores tienen movimiento independiente por posición, fase de juego, posesión, apoyos, marcas y coberturas",
-    "La pelota tiene posesión, conducción, pases con trayectoria, intercepciones, centros, remates, atajadas y reinicios de juego",
-    "Los arcos forman parte del dibujo de la cancha y ya no pueden tapar jugadores ni crear zonas negras por encima",
-    "Las intervenciones del DT, decisiones conectadas y minijuegos siguen integrados y el partido retoma después de resolverlos",
-    "Se añadió recuperación de emergencia para evitar que una pausa de intervención deje el partido congelado"
+    "Vuelven todas las situaciones y elecciones contextuales del sistema de partido anterior; las instrucciones generales ya no las reemplazan",
+    "Se mantienen todos los minijuegos y sus resoluciones dentro de la nueva pantalla 2D",
+    "La cancha representa lo que decidís: centrales más cerrados, bloque bajo, presión alta, laterales adelantados, amplitud, posesión y juego directo modifican posiciones y movimientos",
+    "Se redujeron las cadenas de pases innecesarias y el juego se vuelve más vertical cuando la situación o la táctica lo pide",
+    "El segundo tiempo vuelve a comenzar correctamente desde el círculo central",
+    "Decisiones, minijuegos, consecuencias y animación vuelven a funcionar como un único sistema conectado"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "488caaa63de20e6720e86f0dde461088e26343e8ac34a0e2d7fa8388d6c2110c",
+  "sha256": "3af803b2079e18c7149786ab3564a43dba152d579582af4211a334cc2498f683",
   "migration": true
 }
