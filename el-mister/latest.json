@@ -4,15 +4,13 @@
   "apkUrl": "https://raw.githubusercontent.com/agustinperalta745-ai/Silent-Urge-beta-4/el-mister-updates/el-mister/El-Mister-v0.8.7.apk",
   "mandatory": false,
   "changes": [
-    "Se recuperó la variedad de decisiones durante los partidos: ya no quedan reducidas siempre a las mismas tres opciones de ataque o defensa",
-    "Vuelven las jugadas ofensivas y minijuegos contextuales como patear al arco, rematar de primera, pases filtrados, centros, pases atrás, duelos y salidas bajo presión",
-    "Las opciones siguen respetando la posición real de la pelota y la posesión: no aparecen remates ni acciones ofensivas cuando la jugada no lo permite",
-    "Se agregaron más variantes de progresión, presión, transición, cierre defensivo y gestión del resultado para evitar repeticiones",
-    "Corregido el cierre de partido: después de una acción/minijuego ya no se salta directamente al próximo encuentro",
-    "Al terminar el partido queda protegida la pantalla de resultado con marcador final y Victoria, Derrota o Empate antes de continuar",
-    "Se mantiene el Motor 2D, la animación contextual y las decisiones encadenadas de la v0.8.6"
+    "Se recuperó la variedad de decisiones durante los partidos sin perder la lógica de zona y posesión",
+    "Vuelven remates, pases filtrados, centros, pases atrás, duelos y salidas bajo presión cuando la jugada lo permite",
+    "Corregido el cierre del partido: ningún minijuego puede saltarse el resultado final",
+    "Al terminar se muestra primero el marcador final con Victoria, Derrota o Empate",
+    "Se mantiene el Motor 2D y las decisiones encadenadas de la v0.8.6"
   ],
   "onlineUrl": "https://el-mister-online.agustinperalta745.workers.dev",
-  "sha256": "1b78f840a67403bac59b8622b40832c926c7d53823f81f5432a7956e04644e86",
+  "sha256": "47f2dca00b508260de04fdfe1cf836662b646ee32a792c79d8384ad5595f4e52",
   "migration": true
 }
