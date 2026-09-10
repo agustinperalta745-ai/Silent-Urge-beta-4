@@ -76,9 +76,9 @@ jobs:
           base64 -d el-mister/release/v0800-signed/MANIFEST.MF.b64 > /tmp/v0800/signature/META-INF/MANIFEST.MF
           base64 -d el-mister/release/v0800-signed/ELMISTER.SF.b64 > /tmp/v0800/signature/META-INF/ELMISTER.SF
           base64 -d el-mister/release/v0800-signed/ELMISTER.RSA.b64 > /tmp/v0800/signature/META-INF/ELMISTER.RSA
-          echo 'ec587314287f2e487547e35afbc526a4cef7971bf2bcc9e7c2015fe4eafb343e  /tmp/v0800/signature/META-INF/MANIFEST.MF' | sha256sum -c -
-          echo 'e94b9107692bd1a10a2ea1168e1ae31d54556798b4e5d6fce84aa0cc37e97969  /tmp/v0800/signature/META-INF/ELMISTER.SF' | sha256sum -c -
-          echo '7b092fc714857830052a01e94d5be357e8201fdd305c499bd0d198c7c3012164  /tmp/v0800/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
+          echo '9ffea6923a8f97ab4569a95f2c91c1f864eb35396c05f3a5c991147c7119aa92  /tmp/v0800/signature/META-INF/MANIFEST.MF' | sha256sum -c -
+          echo '6c0890c8bfacdadcc782aedd980fb516b5097e9ff0c1f2a2a465c255eaf1d05a  /tmp/v0800/signature/META-INF/ELMISTER.SF' | sha256sum -c -
+          echo '835a6bf84311bedcb26bf4990516490282ff0348c480a41ce83c1aa34391499b  /tmp/v0800/signature/META-INF/ELMISTER.RSA' | sha256sum -c -
           cd /tmp/v0800/signature
           zip -q -g -r /tmp/v0800/El-Mister-v0.8.0.apk META-INF
           unzip -t /tmp/v0800/El-Mister-v0.8.0.apk >/dev/null
