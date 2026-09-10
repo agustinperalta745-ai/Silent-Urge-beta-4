@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/v079
           mkdir -p /tmp/v079/work/assets
-          cat el-mister/release/v079/part00.js el-mister/release/v079/part01.js el-mister/release/v079/part02.js el-mister/release/v079/part03.js el-mister/release/v079/part04.js > /tmp/v079/patch.js
+          cat el-mister/release/v079/part00.js el-mister/release/v079/part01.js el-mister/release/v079/part02.js el-mister/release/v079/part03.js el-mister/release/v079/part04.js el-mister/release/v079/part05.js > /tmp/v079/patch.js
           node --check /tmp/v079/patch.js
           cp el-mister/source/v078-index.html /tmp/v079/index.html
           python3 - <<'PY'
@@ -47,6 +47,7 @@ jobs:
           grep -q 'Saque lateral en mitad de cancha' /tmp/v079/index.html
           grep -q 'SALIDA BAJO PRESIÓN' /tmp/v079/index.html
           grep -q 'ANTES DE JUGAR' /tmp/v079/index.html
+          grep -q 'v079MarketShellInit' /tmp/v079/index.html
           base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v079/work/AndroidManifest.xml
           base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v079/work/classes.dex
           cp /tmp/v079/index.html /tmp/v079/work/assets/index.html
