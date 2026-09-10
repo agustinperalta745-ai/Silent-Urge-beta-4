@@ -1,0 +1,84 @@
+name: Build El Mister v0.8.7 exact unsigned
+
+on:
+  push:
+    branches: [el-mister-updates]
+    paths:
+      - '.github/workflows/el-mister-v0807-build.yml'
+      - 'el-mister/release/v0807/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: el-mister-updates
+      - name: Regression checks
+        run: |
+          set -euo pipefail
+          node --check el-mister/release/v0806/zone-logic.js
+          node --check el-mister/release/v0807/variety-result-fix.js
+          grep -q "Patear al arco" el-mister/release/v0807/variety-result-fix.js
+          grep -q "Rematar de primera" el-mister/release/v0807/variety-result-fix.js
+          grep -q "em807ResultPending" el-mister/release/v0807/variety-result-fix.js
+          grep -q "El rival intenta romper tu mediocampo" el-mister/release/v0807/variety-result-fix.js
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('el-mister/release/v0807/variety-result-fix.js').read_text(encoding='utf-8')
+          keys=set()
+          import re
+          keys.update(re.findall(r"c,'(em807_[^']+)'",s))
+          if len(keys) < 15:
+              raise SystemExit(f'expected broad contextual variety, got {len(keys)} scenario keys')
+          if s.count("mini:'first'") < 3 or s.count("mini:'through'") < 8:
+              raise SystemExit('offensive/minigame variety regression')
+          PY
+      - name: Assemble exact v0.8.7 source
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v0807 && mkdir -p /tmp/v0807/work/assets
+          cp el-mister/source/v0805-index.html /tmp/v0807/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v0807/index.html')
+          s=p.read_text(encoding='utf-8')
+          if "const VERSION='0.8.5';" not in s or 'const VERSION_CODE=41;' not in s:
+              raise SystemExit('v0.8.5 markers not found')
+          s=s.replace("const VERSION='0.8.5';", "const VERSION='0.8.7';", 1)
+          s=s.replace('const VERSION_CODE=41;', 'const VERSION_CODE=43;', 1)
+          patches=[
+              Path('el-mister/release/v0806/zone-logic.js').read_text(encoding='utf-8'),
+              Path('el-mister/release/v0807/variety-result-fix.js').read_text(encoding='utf-8'),
+          ]
+          head,tail=s.rsplit('</script>',1)
+          s=head+'\n'+'\n'.join(patches)+'\n</script>'+tail
+          p.write_text(s,encoding='utf-8')
+          js=s.split('<script>',1)[1].rsplit('</script>',1)[0]
+          Path('/tmp/v0807/full.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/v0807/full.js
+          grep -q "const VERSION='0.8.7'" /tmp/v0807/index.html
+          grep -q 'const VERSION_CODE=43' /tmp/v0807/index.html
+          grep -q 'em806ZoneContext' /tmp/v0807/index.html
+          grep -q 'em807BuildScenario' /tmp/v0807/index.html
+          grep -q 'em807ResultPending' /tmp/v0807/index.html
+          grep -q 'Patear al arco' /tmp/v0807/index.html
+      - name: Build exact unsigned APK
+        run: |
+          set -euo pipefail
+          base64 -d el-mister/source/v074-AndroidManifest.xml.b64 > /tmp/v0807/work/AndroidManifest.xml
+          base64 -d el-mister/source/v074-classes.dex.b64 > /tmp/v0807/work/classes.dex
+          cp /tmp/v0807/index.html /tmp/v0807/work/assets/index.html
+          cd /tmp/v0807/work
+          zip -q -r /tmp/v0807/El-Mister-v0.8.7-unsigned.apk .
+          unzip -t /tmp/v0807/El-Mister-v0.8.7-unsigned.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: el-mister-v0807-exact-unsigned
+          path: /tmp/v0807/El-Mister-v0.8.7-unsigned.apk
+          retention-days: 3
